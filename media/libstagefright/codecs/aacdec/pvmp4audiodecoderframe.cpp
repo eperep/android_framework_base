@@ -832,7 +832,8 @@ OSCL_EXPORT_REF Int PVMP4AudioDecodeFrame(
          */
         if (pMC_Info->sbrPresentFlag || pMC_Info->psPresentFlag)
         {
-            status = MP4AUDEC_INVALID_FRAME;
+            //status = MP4AUDEC_INVALID_FRAME;
+            PVMP4AudioDecoderDisableAacPlus(pExt, pMem);
         }
     }
 #endif
