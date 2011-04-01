@@ -123,6 +123,8 @@ enum {
     kKeyTextFormatData    = 'text',  // raw data
 
     kKeyRequiresSecureBuffers = 'secu',  // bool (int32_t)
+
+    kKeyNodeId            = 'node',  // int32_t
 };
 
 enum {
