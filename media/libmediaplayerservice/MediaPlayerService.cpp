@@ -1360,6 +1360,8 @@ status_t MediaPlayerService::AudioOutput::open(
     int afSampleRate;
     int afFrameCount;
     int frameCount;
+    int channels = 0;
+    int outputflag = 0;
 
     if (AudioSystem::getOutputFrameCount(&afFrameCount, mStreamType) != NO_ERROR) {
         return NO_INIT;
@@ -1370,15 +1372,39 @@ status_t MediaPlayerService::AudioOutput::open(
 
     frameCount = (sampleRate*afFrameCount*bufferCount)/afSampleRate;
 
+    switch (channelCount) {
+        case 8:
+            channels |= AUDIO_CHANNEL_OUT_7POINT1;
+            // Direct output enabled for more than 2 channels
+            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+            break;
+        case 6:
+            channels |= AUDIO_CHANNEL_OUT_5POINT1;
+            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+            break;
+        case 4:
+            channels |= AUDIO_CHANNEL_OUT_QUAD;
+            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+            break;
+        default:
+        case 2:
+            channels |= AUDIO_CHANNEL_OUT_STEREO;
+            break;
+        case 1:
+            channels |= AUDIO_CHANNEL_OUT_MONO;
+            break;
+    }
+
+    LOGV("AudioOutput::open :: outputflag = %d \n",outputflag);
     AudioTrack *t;
     if (mCallback != NULL) {
         t = new AudioTrack(
                 mStreamType,
                 sampleRate,
                 format,
-                (channelCount == 2) ? AUDIO_CHANNEL_OUT_STEREO : AUDIO_CHANNEL_OUT_MONO,
+                channels,
                 frameCount,
-                0 /* flags */,
+                outputflag,
                 CallbackWrapper,
                 this,
                 0,
@@ -1388,9 +1414,9 @@ status_t MediaPlayerService::AudioOutput::open(
                 mStreamType,
                 sampleRate,
                 format,
-                (channelCount == 2) ? AUDIO_CHANNEL_OUT_STEREO : AUDIO_CHANNEL_OUT_MONO,
+                channels,
                 frameCount,
-                0,
+                outputflag,
                 NULL,
                 NULL,
                 0,

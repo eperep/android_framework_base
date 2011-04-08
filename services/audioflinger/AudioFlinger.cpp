@@ -1717,11 +1717,9 @@ void AudioFlinger::PlaybackThread::readOutputParameters()
     mFrameSize = (uint16_t)audio_stream_frame_size(&mOutput->stream->common);
     mFrameCount = mOutput->stream->common.get_buffer_size(&mOutput->stream->common) / mFrameSize;
 
-    // FIXME - Current mixer implementation only supports stereo output: Always
-    // Allocate a stereo buffer even if HW output is mono.
     if (mMixBuffer != NULL) delete[] mMixBuffer;
-    mMixBuffer = new int16_t[mFrameCount * 2];
-    memset(mMixBuffer, 0, mFrameCount * 2 * sizeof(int16_t));
+    mMixBuffer = new int16_t[mFrameCount * mChannelCount];
+    memset(mMixBuffer, 0, mFrameCount * mChannelCount * sizeof(int16_t));
 
     // force reconfiguration of effect chains and engines to take new buffer size and audio
     // parameters into account
@@ -3154,8 +3152,10 @@ AudioFlinger::ThreadBase::TrackBase::TrackBase(
    size_t size = sizeof(audio_track_cblk_t);
    uint8_t channelCount = popcount(channelMask);
    size_t bufferSize = frameCount*channelCount*sizeof(int16_t);
+   size_t align = channelCount*sizeof(int16_t);
    if (sharedBuffer == 0) {
        size += bufferSize;
+       size += align;
    }
 
    if (client != NULL) {
@@ -3171,6 +3171,8 @@ AudioFlinger::ThreadBase::TrackBase::TrackBase(
                 mChannelMask = channelMask;
                 if (sharedBuffer == 0) {
                     mBuffer = (char*)mCblk + sizeof(audio_track_cblk_t);
+                    // align mBuffer to take care of framesize which are not power of 2
+                    mBuffer = (char*)mBuffer + (align - ((unsigned long int)mBuffer % align));
                     memset(mBuffer, 0, frameCount*channelCount*sizeof(int16_t));
                     // Force underrun condition to avoid false underrun callback until first data is
                     // written to buffer (other flags are cleared)
@@ -3195,6 +3197,8 @@ AudioFlinger::ThreadBase::TrackBase::TrackBase(
            mChannelCount = channelCount;
            mChannelMask = channelMask;
            mBuffer = (char*)mCblk + sizeof(audio_track_cblk_t);
+           // align mBuffer to take care of framesize which are not power of 2
+           mBuffer = (char*)mBuffer + (align - ((unsigned long int)mBuffer % align));
            memset(mBuffer, 0, frameCount*channelCount*sizeof(int16_t));
            // Force underrun condition to avoid false underrun callback until first data is
            // written to buffer (other flags are cleared)
@@ -3274,7 +3278,7 @@ void* AudioFlinger::ThreadBase::TrackBase::getBuffer(uint32_t offset, uint32_t f
 
     // Check validity of returned pointer in case the track control block would have been corrupted.
     if (bufferStart < mBuffer || bufferStart > bufferEnd || bufferEnd > mBufferEnd ||
-        ((unsigned long)bufferStart & (unsigned long)(cblk->frameSize - 1))) {
+        ((unsigned long)bufferStart % (unsigned long)cblk->frameSize)) {
         LOGE("TrackBase::getBuffer buffer out of range:\n    start: %p, end %p , mBuffer %p mBufferEnd %p\n    \
                 server %d, serverBase %d, user %d, userBase %d",
                 bufferStart, bufferEnd, mBuffer, mBufferEnd,

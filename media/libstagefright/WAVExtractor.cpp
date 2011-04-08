@@ -35,6 +35,7 @@ enum {
     WAVE_FORMAT_PCM = 1,
     WAVE_FORMAT_ALAW = 6,
     WAVE_FORMAT_MULAW = 7,
+    WAVE_FORMAT_EXTENSIBLE = 65534,
 };
 
 static uint32_t U32_LE_AT(const uint8_t *ptr) {
@@ -167,14 +168,20 @@ status_t WAVExtractor::init() {
             }
 
             mWaveFormat = U16_LE_AT(formatSpec);
+
             if (mWaveFormat != WAVE_FORMAT_PCM
                     && mWaveFormat != WAVE_FORMAT_ALAW
-                    && mWaveFormat != WAVE_FORMAT_MULAW) {
+                    && mWaveFormat != WAVE_FORMAT_MULAW
+                    && mWaveFormat != WAVE_FORMAT_EXTENSIBLE) {
                 return ERROR_UNSUPPORTED;
             }
 
+            // fixme: Currently hardcoded to PCM format. Need to handle extended format properly.
+            if (mWaveFormat == WAVE_FORMAT_EXTENSIBLE)
+               mWaveFormat = WAVE_FORMAT_PCM;
+
             mNumChannels = U16_LE_AT(&formatSpec[2]);
-            if (mNumChannels != 1 && mNumChannels != 2) {
+            if (mNumChannels <= 0 && mNumChannels > 8) {
                 return ERROR_UNSUPPORTED;
             }
 
