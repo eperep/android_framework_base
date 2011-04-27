@@ -326,7 +326,11 @@ status_t SampleTable::setTimeToSampleParams(
 
     if (U32_AT(header) != 0) {
         // Expected version = 0, flags = 0.
-        return ERROR_MALFORMED;
+        // If it's not, let's assume this is one of those
+        // apparently malformed chunks that don't have flags
+        // and completely different semantics than what's
+        // in the MPEG4 specs and skip it.
+        return OK;
     }
 
     mTimeToSampleCount = U32_AT(&header[4]);
