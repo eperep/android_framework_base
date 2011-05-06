@@ -133,6 +133,8 @@ private:
     enum Type {
         AVC,
         AAC,
+        MP3,
+        MPEG4,
         OTHER
     };
 
@@ -181,12 +183,20 @@ MatroskaSource::MatroskaSource(
         CHECK(meta->findData(
                     kKeyAVCC, &dummy, (const void **)&avcc, &avccSize));
 
-        CHECK_GE(avccSize, 5u);
-
-        mNALSizeLen = 1 + (avcc[4] & 3);
+        LOGV("avccSize = %d", avccSize);
+        mNALSizeLen = 1;
+        if (avcc && avccSize >= 5){
+            // relax this since failing for some content
+            // CHECK_GE(avccSize, 5u);
+            mNALSizeLen = 1 + (avcc[4] & 3);
+        }
         LOGV("mNALSizeLen = %d", mNALSizeLen);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC)) {
         mType = AAC;
+    }else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
+        mType = MP3;
+    }  else if (!strcasecmp (mime, MEDIA_MIMETYPE_VIDEO_MPEG4)) {
+        mType = MPEG4;
     }
 }
 
@@ -645,6 +655,36 @@ sp<MetaData> MatroskaExtractor::getTrackMetaData(
 
     return mTracks.itemAt(index).mMeta;
 }
+static void addESDSFromVideoSpecificInfo(
+        const sp<MetaData> &meta, const void *asi, size_t asiSize) {
+    static const uint8_t kStaticESDS[] = {
+            0x03, 22,
+            0x00, 0x00,     // ES_ID
+            0x00,           // streamDependenceFlag, URL_Flag, OCRstreamFlag
+
+            0x04, 17,
+            0x40,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+
+            0x05,
+            // Video SpecificInfo (with size prefix) follows
+            };
+
+    CHECK(asiSize < 128);
+    size_t esdsSize = sizeof(kStaticESDS) + asiSize + 1;
+    uint8_t *esds = new uint8_t[esdsSize];
+    memcpy(esds, kStaticESDS, sizeof(kStaticESDS));
+    uint8_t *ptr = esds + sizeof(kStaticESDS);
+    *ptr++ = asiSize;
+    memcpy(ptr, asi, asiSize);
+
+    meta->setData(kKeyESDS, 0, esds, esdsSize);
+
+    delete[] esds;
+    esds = NULL;
+}
 
 bool MatroskaExtractor::isLiveStreaming() const {
     return mIsLiveStreaming;
@@ -749,7 +789,10 @@ void MatroskaExtractor::addTracks() {
                     meta->setData(kKeyAVCC, 0, codecPrivate, codecPrivateSize);
                 } else if (!strcmp("V_VP8", codecID)) {
                     meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_VPX);
-                } else {
+                } else if  (!strcmp ("V_MPEG4/ISO/ASP", codecID)) {
+                    meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_MPEG4);
+                    addESDSFromVideoSpecificInfo(meta, codecPrivate, codecPrivateSize);
+                }else {
                     continue;
                 }
 
@@ -777,7 +820,9 @@ void MatroskaExtractor::addTracks() {
                     meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_VORBIS);
 
                     addVorbisCodecInfo(meta, codecPrivate, codecPrivateSize);
-                } else {
+                } else if (!strcmp("A_MPEG/L3", codecID) || !strcmp("A_MPEG/L2", codecID)) {
+                    meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_MPEG);
+                }else {
                     continue;
                 }
 
