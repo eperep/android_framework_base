@@ -301,6 +301,9 @@ VideoFrame *StagefrightMetadataRetriever::getFrameAtTime(
     for (i = 0; i < n; ++i) {
         sp<MetaData> meta = mExtractor->getTrackMetaData(i);
 
+        if (meta == NULL)
+            continue;
+
         const char *mime;
         CHECK(meta->findCString(kKeyMIMEType, &mime));
 
