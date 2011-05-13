@@ -2546,6 +2546,27 @@ void OMXCodec::onEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
                     }
                 }
             }
+            else if(data1 == kPortIndexOutput
+                    && data2 == OMX_IndexParamAudioPcm){
+
+                 sp<MetaData> srcFormat = mSource->getFormat();
+                 int32_t sampleRate, numChannels;
+                 OMX_AUDIO_PARAM_PCMMODETYPE pcmParams;
+
+                 CHECK(srcFormat->findInt32(kKeySampleRate, &sampleRate));
+                 CHECK(srcFormat->findInt32(kKeyChannelCount, &numChannels));
+
+                 InitOMXParams(&pcmParams);
+                 pcmParams.nPortIndex = data1;
+                 status_t err = mOMX->getParameter(
+                      mNode, OMX_IndexParamAudioPcm, &pcmParams, sizeof(pcmParams));
+
+                 if (pcmParams.nSamplingRate != sampleRate)
+                 {
+                      mOutputFormat->setInt32(kKeySampleRate, pcmParams.nSamplingRate);
+                 }
+
+            }
             break;
         }
 
