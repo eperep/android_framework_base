@@ -606,8 +606,9 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
         }
         if (meta->findData(kKeyESDS, &type, &data, &size)) {
             ESDS esds((const char *)data, size);
-            CHECK_EQ(esds.InitCheck(), (status_t)OK);
-
+            //relax and bypass codec specific info if init check fails
+            //CHECK_EQ(esds.InitCheck(), (status_t)OK);
+            if (esds.InitCheck() == OK) {
             const void *codec_specific_data;
             size_t codec_specific_data_size;
             esds.getCodecSpecificInfo(
@@ -615,6 +616,7 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
 
             addCodecSpecificData(
                     codec_specific_data, codec_specific_data_size);
+            }
         } else if (meta->findData(kKeyAVCC, &type, &data, &size)) {
             // Parse the AVCDecoderConfigurationRecord
 

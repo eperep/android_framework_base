@@ -193,9 +193,9 @@ MatroskaSource::MatroskaSource(
         LOGV("mNALSizeLen = %d", mNALSizeLen);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC)) {
         mType = AAC;
-    }else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
+    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
         mType = MP3;
-    }  else if (!strcasecmp (mime, MEDIA_MIMETYPE_VIDEO_MPEG4)) {
+    } else if (!strcasecmp (mime, MEDIA_MIMETYPE_VIDEO_MPEG4)) {
         mType = MPEG4;
     }
 }
@@ -451,6 +451,7 @@ status_t MatroskaSource::read(
     ReadOptions::SeekMode mode;
     if (options && options->getSeekTo(&seekTimeUs, &mode)
             && !mExtractor->isLiveStreaming()) {
+        LOGV( "MKV Seek Mode: %lld", seekTimeUs);
         clearPendingFrames();
 
         // Apparently keyframe indication in audio tracks is unreliable,
@@ -465,7 +466,7 @@ again:
 
         if (err != OK) {
             clearPendingFrames();
-
+            LOGV( "MKV readBlock error %d", __LINE__);
             return err;
         }
     }

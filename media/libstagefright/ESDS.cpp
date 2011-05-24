@@ -93,11 +93,10 @@ status_t ESDS::skipDescriptorHeader(
 
     LOGV("tag=0x%02x data_size=%d", *tag, *data_size);
 
+    *data_offset = offset;
     if (*data_size > size) {
         return ERROR_MALFORMED;
     }
-
-    *data_offset = offset;
 
     return OK;
 }
@@ -209,7 +208,7 @@ status_t ESDS::parseDecoderConfigDescriptor(size_t offset, size_t size) {
     status_t err = skipDescriptorHeader(
             offset, size, &tag, &sub_offset, &sub_size);
 
-    if (err != OK) {
+    if (err != OK  && tag != kTag_DecoderSpecificInfo) {
         return err;
     }
 
