@@ -286,13 +286,6 @@ uint32_t OMXCodec::getComponentQuirks(
         const char *componentName, bool isEncoder) {
     uint32_t quirks = 0;
 
-    if (!strcmp(componentName, "OMX.Nvidia.amr.decoder") ||
-         !strcmp(componentName, "OMX.Nvidia.amrwb.decoder") ||
-         !strcmp(componentName, "OMX.Nvidia.aac.decoder") ||
-         !strcmp(componentName, "OMX.Nvidia.mp3.decoder")) {
-        quirks |= kDecoderLiesAboutNumberOfChannels;
-    }
-
     if (!strcmp(componentName, "OMX.TI.MP3.decode")) {
         quirks |= kNeedsFlushBeforeDisable;
         quirks |= kDecoderLiesAboutNumberOfChannels;
@@ -2545,27 +2538,15 @@ void OMXCodec::onEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
                         }
                     }
                 }
-            }
-            else if(data1 == kPortIndexOutput
-                    && data2 == OMX_IndexParamAudioPcm){
+            } else if (data1 == kPortIndexOutput
+                    && data2 == OMX_IndexParamAudioPcm) {
 
                  sp<MetaData> srcFormat = mSource->getFormat();
-                 int32_t sampleRate, numChannels;
-                 OMX_AUDIO_PARAM_PCMMODETYPE pcmParams;
+                 initOutputFormat(mSource->getFormat());
 
-                 CHECK(srcFormat->findInt32(kKeySampleRate, &sampleRate));
-                 CHECK(srcFormat->findInt32(kKeyChannelCount, &numChannels));
-
-                 InitOMXParams(&pcmParams);
-                 pcmParams.nPortIndex = data1;
-                 status_t err = mOMX->getParameter(
-                      mNode, OMX_IndexParamAudioPcm, &pcmParams, sizeof(pcmParams));
-
-                 if (pcmParams.nSamplingRate != sampleRate)
-                 {
-                      mOutputFormat->setInt32(kKeySampleRate, pcmParams.nSamplingRate);
+                 if (formatHasNotablyChanged(srcFormat, mOutputFormat)) {
+                     mOutputPortSettingsHaveChanged = true;
                  }
-
             }
             break;
         }
