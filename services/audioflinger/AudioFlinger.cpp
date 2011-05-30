@@ -3734,6 +3734,10 @@ AudioFlinger::PlaybackThread::OutputTrack::OutputTrack(
     if (mCblk != NULL) {
         mCblk->flags |= CBLK_DIRECTION_OUT;
         mCblk->buffers = (char*)mCblk + sizeof(audio_track_cblk_t);
+        // align mBuffer to take care of framesize which are not power of 2
+        uint32_t channelCount = popcount(channelMask);
+        size_t align = channelCount*sizeof(int16_t);
+        mCblk->buffers  = (char*)mCblk->buffers  + (align - ((unsigned long int)mCblk->buffers  % align));
         mCblk->volume[0] = mCblk->volume[1] = 0x1000;
         mOutBuffer.frameCount = 0;
         playbackThread->mTracks.add(this);
