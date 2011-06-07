@@ -455,6 +455,8 @@ status_t AudioRecord::openRecord_l(
         audio_io_handle_t input)
 {
     status_t status;
+    uint32_t channelCount = popcount(channelMask);
+    size_t align = channelCount*sizeof(int16_t);
     const sp<IAudioFlinger>& audioFlinger = AudioSystem::get_audio_flinger();
     if (audioFlinger == 0) {
         return NO_INIT;
@@ -484,6 +486,10 @@ status_t AudioRecord::openRecord_l(
     mCblk = static_cast<audio_track_cblk_t*>(cblk->pointer());
     mCblk->buffers = (char*)mCblk + sizeof(audio_track_cblk_t);
     android_atomic_and(~CBLK_DIRECTION_MSK, &mCblk->flags);
+    // align to multiple of framesize. Take care of framesize which are not power of 2
+    if ((unsigned long int)mCblk->buffers % align) {
+        mCblk->buffers  = (char*)mCblk->buffers  + (align - ((unsigned long int)mCblk->buffers  % align));
+    }
     mCblk->bufferTimeoutMs = MAX_RUN_TIMEOUT_MS;
     mCblk->waitTimeMs = 0;
     return NO_ERROR;

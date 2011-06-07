@@ -810,9 +810,12 @@ status_t AudioTrack::createTrack_l(
     android_atomic_or(CBLK_DIRECTION_OUT, &mCblk->flags);
     if (sharedBuffer == 0) {
         mCblk->buffers = (char*)mCblk + sizeof(audio_track_cblk_t);
-        // align mBuffer to take care of framesize which are not power of 2
+        // align to multiple of framesize. Take care of framesize which are not power of 2
+        uint32_t channelCount = popcount(channelMask);
         size_t align = channelCount*sizeof(int16_t);
-        mCblk->buffers  = (char*)mCblk->buffers  + (align - ((unsigned long int)mCblk->buffers  % align));
+        if ((unsigned long int)mCblk->buffers % align) {
+            mCblk->buffers  = (char*)mCblk->buffers  + (align - ((unsigned long int)mCblk->buffers % align));
+        }
     } else {
         mCblk->buffers = sharedBuffer->pointer();
          // Force buffer full condition as data is already present in shared memory

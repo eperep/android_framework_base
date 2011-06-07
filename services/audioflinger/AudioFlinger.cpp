@@ -3171,8 +3171,10 @@ AudioFlinger::ThreadBase::TrackBase::TrackBase(
                 mChannelMask = channelMask;
                 if (sharedBuffer == 0) {
                     mBuffer = (char*)mCblk + sizeof(audio_track_cblk_t);
-                    // align mBuffer to take care of framesize which are not power of 2
-                    mBuffer = (char*)mBuffer + (align - ((unsigned long int)mBuffer % align));
+                    // align to multiple of framesize. Take care of framesize which are not power of 2
+                    if ((unsigned long int)mBuffer % align) {
+                        mBuffer = (char*)mBuffer + (align - ((unsigned long int)mBuffer % align));
+                    }
                     memset(mBuffer, 0, frameCount*channelCount*sizeof(int16_t));
                     // Force underrun condition to avoid false underrun callback until first data is
                     // written to buffer (other flags are cleared)
@@ -3197,8 +3199,10 @@ AudioFlinger::ThreadBase::TrackBase::TrackBase(
            mChannelCount = channelCount;
            mChannelMask = channelMask;
            mBuffer = (char*)mCblk + sizeof(audio_track_cblk_t);
-           // align mBuffer to take care of framesize which are not power of 2
-           mBuffer = (char*)mBuffer + (align - ((unsigned long int)mBuffer % align));
+           // align to multiple of framesize. Take care of framesize which are not power of 2
+           if ((unsigned long int)mBuffer % align) {
+               mBuffer = (char*)mBuffer + (align - ((unsigned long int)mBuffer % align));
+           }
            memset(mBuffer, 0, frameCount*channelCount*sizeof(int16_t));
            // Force underrun condition to avoid false underrun callback until first data is
            // written to buffer (other flags are cleared)
@@ -3734,10 +3738,12 @@ AudioFlinger::PlaybackThread::OutputTrack::OutputTrack(
     if (mCblk != NULL) {
         mCblk->flags |= CBLK_DIRECTION_OUT;
         mCblk->buffers = (char*)mCblk + sizeof(audio_track_cblk_t);
-        // align mBuffer to take care of framesize which are not power of 2
+        // align to multiple of framesize. Take care of framesize which are not power of 2
         uint32_t channelCount = popcount(channelMask);
         size_t align = channelCount*sizeof(int16_t);
-        mCblk->buffers  = (char*)mCblk->buffers  + (align - ((unsigned long int)mCblk->buffers  % align));
+        if ((unsigned long int)mCblk->buffers % align) {
+            mCblk->buffers  = (char*)mCblk->buffers  + (align - ((unsigned long int)mCblk->buffers % align));
+        }
         mCblk->volume[0] = mCblk->volume[1] = 0x1000;
         mOutBuffer.frameCount = 0;
         playbackThread->mTracks.add(this);
