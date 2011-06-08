@@ -370,8 +370,8 @@ status_t SampleTable::setCompositionTimeToSampleParams(
     }
 
     size_t numEntries = U32_AT(&header[4]);
-
-    if (data_size != (numEntries + 1) * 8) {
+    //check for data size to avoid over read of data
+    if (data_size < (numEntries + 1) * 8) {
         return ERROR_MALFORMED;
     }
 
