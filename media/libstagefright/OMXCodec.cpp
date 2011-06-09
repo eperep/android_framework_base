@@ -1589,8 +1589,17 @@ status_t OMXCodec::init() {
     while (mState != EXECUTING && mState != ERROR) {
         mAsyncCompletion.wait(mLock);
     }
+    if (mState == ERROR)
+    {
+        err = freeBuffersOnPort(kPortIndexInput);
+        CHECK_EQ(err, (status_t)OK);
 
-    return mState == ERROR ? UNKNOWN_ERROR : OK;
+        err = freeBuffersOnPort(kPortIndexOutput);
+        CHECK_EQ(err, (status_t)OK);
+        return UNKNOWN_ERROR;
+    }
+
+    return OK;
 }
 
 // static
