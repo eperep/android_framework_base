@@ -679,6 +679,7 @@ void AwesomePlayer::reset_l() {
     mSeeking = NO_SEEK;
     mSeekNotificationSent = true;
     mSeekTimeUs = 0;
+    mSeekMode = MediaSource::ReadOptions::SEEK_CLOSEST_SYNC;
 
     mUri.setTo("");
     mUriHeaders.clear();
@@ -1506,6 +1507,15 @@ status_t AwesomePlayer::seekTo_l(int64_t timeUs) {
         postVideoEvent_l();
     }
 
+    int64_t currentTimeUs;
+    getPosition(&currentTimeUs);
+    //Determine direction wrt current position before mSeeking is set
+    //If forward direction, move to subsequent sync sample else preceeding sync sample
+    if (timeUs > currentTimeUs)
+        mSeekMode = MediaSource::ReadOptions::SEEK_NEXT_SYNC;
+    else
+        mSeekMode = MediaSource::ReadOptions::SEEK_PREVIOUS_SYNC;
+
     mSeeking = SEEK;
     mSeekNotificationSent = false;
     mSeekTimeUs = timeUs;
@@ -1806,7 +1816,7 @@ void AwesomePlayer::onVideoEvent() {
                     mSeekTimeUs,
                     mSeeking == SEEK_VIDEO_ONLY
                         ? MediaSource::ReadOptions::SEEK_NEXT_SYNC
-                        : MediaSource::ReadOptions::SEEK_CLOSEST_SYNC);
+                        : mSeekMode);
         }
         for (;;) {
             status_t err = mVideoSource->read(&mVideoBuffer, &options);

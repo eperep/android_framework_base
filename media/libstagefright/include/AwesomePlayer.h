@@ -24,6 +24,7 @@
 #include "TimedEventQueue.h"
 
 #include <media/MediaPlayerInterface.h>
+#include <media/stagefright/MediaSource.h>
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/OMXClient.h>
 #include <media/stagefright/TimeSource.h>
@@ -201,6 +202,7 @@ private:
 
     bool mSeekNotificationSent;
     int64_t mSeekTimeUs;
+    MediaSource::ReadOptions::SeekMode mSeekMode;
 
     int64_t mBitrate;  // total bitrate of the file (in bps) or -1 if unknown.
 
