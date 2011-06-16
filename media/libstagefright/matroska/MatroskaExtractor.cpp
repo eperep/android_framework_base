@@ -316,7 +316,8 @@ void BlockIterator::seek(int64_t seekTimeUs, bool seekToKeyFrame) {
     while (!eos() && block()->GetTrackNumber() != mTrackNum);
 
     if (seekToKeyFrame) {
-        while (!eos() && !mBlockEntry->GetBlock()->IsKey()) {
+        while (!eos() && (!mBlockEntry->GetBlock()->IsKey() ||
+            blockTimeUs() < seekTimeUs)) {
             advance_l();
         }
     }
