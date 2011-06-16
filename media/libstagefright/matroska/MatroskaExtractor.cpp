@@ -725,10 +725,14 @@ void MatroskaExtractor::addTracks() {
 
                 if (!strcmp("A_AAC", codecID)) {
                     meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_AAC);
-                    CHECK(codecPrivateSize >= 2);
-
-                    addESDSFromAudioSpecificInfo(
-                            meta, codecPrivate, codecPrivateSize);
+                    // CHECK(codecPrivateSize >= 2);
+                    // This check causing assert for some mkv content. Hence just conditional
+                    // checking to let playback happen and avoid crash.
+                    LOGV ("AAC- codecPrivateSize = %d", codecPrivateSize);
+                    if (codecPrivateSize >= 2) {
+                        addESDSFromAudioSpecificInfo(
+                                meta, codecPrivate, codecPrivateSize);
+                    }
                 } else if (!strcmp("A_VORBIS", codecID)) {
                     meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_VORBIS);
 
