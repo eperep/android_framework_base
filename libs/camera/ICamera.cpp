@@ -36,7 +36,9 @@ enum {
     CANCEL_AUTO_FOCUS,
     TAKE_PICTURE,
     SET_PARAMETERS,
+    SET_CUSTOMPARAMETERS,
     GET_PARAMETERS,
+    GET_CUSTOMPARAMETERS,
     SEND_COMMAND,
     CONNECT,
     LOCK,
@@ -222,6 +224,16 @@ public:
         return reply.readInt32();
     }
 
+    status_t setCustomParameters(const String8& params)
+    {
+        LOGV("setCustomParameters");
+        Parcel data, reply;
+        data.writeInterfaceToken(ICamera::getInterfaceDescriptor());
+        data.writeString8(params);
+        remote()->transact(SET_CUSTOMPARAMETERS, data, &reply);
+        return reply.readInt32();
+    }
+
     // get preview/capture parameters - key/value pairs
     String8 getParameters() const
     {
@@ -231,6 +243,16 @@ public:
         remote()->transact(GET_PARAMETERS, data, &reply);
         return reply.readString8();
     }
+
+    String8 getCustomParameters() const
+    {
+        LOGV("getCustomParameters");
+        Parcel data, reply;
+        data.writeInterfaceToken(ICamera::getInterfaceDescriptor());
+        remote()->transact(GET_CUSTOMPARAMETERS, data, &reply);
+        return reply.readString8();
+    }
+
     virtual status_t sendCommand(int32_t cmd, int32_t arg1, int32_t arg2)
     {
         LOGV("sendCommand");
@@ -377,10 +399,23 @@ status_t BnCamera::onTransact(
             reply->writeInt32(setParameters(params));
             return NO_ERROR;
          } break;
+        case SET_CUSTOMPARAMETERS: {
+            LOGV("SET_CUSTOMPARAMETERS");
+            CHECK_INTERFACE(ICamera, data, reply);
+            String8 params(data.readString8());
+            reply->writeInt32(setCustomParameters(params));
+            return NO_ERROR;
+         } break;
         case GET_PARAMETERS: {
             LOGV("GET_PARAMETERS");
             CHECK_INTERFACE(ICamera, data, reply);
              reply->writeString8(getParameters());
+            return NO_ERROR;
+         } break;
+        case GET_CUSTOMPARAMETERS: {
+            LOGV("GET_CUSTOMPARAMETERS");
+            CHECK_INTERFACE(ICamera, data, reply);
+             reply->writeString8(getCustomParameters());
             return NO_ERROR;
          } break;
         case SEND_COMMAND: {

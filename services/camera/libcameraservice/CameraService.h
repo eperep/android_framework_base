@@ -106,7 +106,9 @@ private:
         virtual status_t        cancelAutoFocus();
         virtual status_t        takePicture(int msgType);
         virtual status_t        setParameters(const String8& params);
+        virtual status_t        setCustomParameters(const String8& params);
         virtual String8         getParameters() const;
+        virtual String8         getCustomParameters() const;
         virtual status_t        sendCommand(int32_t cmd, int32_t arg1, int32_t arg2);
     private:
         friend class CameraService;
@@ -183,6 +185,10 @@ private:
         int                             mPreviewCallbackFlag;
         int                             mOrientation;     // Current display orientation
         bool                            mPlayShutterSound;
+
+        int                             mNSLBurstCount;
+        int                             mBurstCount;
+        int                             mPictureCount;
 
         // Ensures atomicity among the public methods
         mutable Mutex                   mLock;

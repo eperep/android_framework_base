@@ -352,6 +352,9 @@ CameraService::Client::Client(const sp<CameraService>& cameraService,
     mCameraFacing = cameraFacing;
     mClientPid = clientPid;
     mMsgEnabled = 0;
+    mNSLBurstCount = 0;
+    mBurstCount = 1;
+    mPictureCount = 0;
     mSurface = 0;
     mPreviewWindow = 0;
     mHardware->setCallbacks(notifyCallback,
@@ -785,6 +788,8 @@ status_t CameraService::Client::takePicture(int msgType) {
         return BAD_VALUE;
     }
 
+    mPictureCount += mNSLBurstCount + mBurstCount;
+
     // We only accept picture related message types
     // and ignore other types of messages for takePicture().
     int picMsgType = msgType
@@ -811,6 +816,32 @@ status_t CameraService::Client::setParameters(const String8& params) {
     return mHardware->setParameters(p);
 }
 
+status_t CameraService::Client::setCustomParameters(const String8& params) {
+    LOG1("setCustomParameters (pid %d) (%s)", getCallingPid(), params.string());
+
+    Mutex::Autolock lock(mLock);
+    status_t result = checkPidAndHardware();
+    if (result != NO_ERROR) return result;
+
+    NvCameraParameters p(params);
+
+    mNSLBurstCount = p.getInt(NvCameraParameters::NV_NSL_BURST_PICTURE_COUNT);
+    if (mNSLBurstCount < 0) mNSLBurstCount = 0;
+    LOG1("setCustomParameters: NSL burst picture count is %d\n", mNSLBurstCount);
+    mBurstCount = p.getInt(NvCameraParameters::NV_BURST_PICTURE_COUNT);
+    if (mBurstCount < 0) mBurstCount = 0;
+    LOG1("setCustomParameters: burst picture count is %d\n", mBurstCount);
+
+    if (mNSLBurstCount + mBurstCount == 0)
+    {
+        // stop command
+        mPictureCount = 0;
+        disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
+    }
+
+    return mHardware->setCustomParameters(p);
+}
+
 // get preview/capture parameters - key/value pairs
 String8 CameraService::Client::getParameters() const {
     Mutex::Autolock lock(mLock);
@@ -818,6 +849,15 @@ String8 CameraService::Client::getParameters() const {
 
     String8 params(mHardware->getParameters().flatten());
     LOG1("getParameters (pid %d) (%s)", getCallingPid(), params.string());
+    return params;
+}
+
+String8 CameraService::Client::getCustomParameters() const {
+    Mutex::Autolock lock(mLock);
+    if (checkPidAndHardware() != NO_ERROR) return String8();
+
+    String8 params(mHardware->getCustomParameters().flatten());
+    LOG1("getCustomParameters (pid %d) (%s)", getCallingPid(), params.string());
     return params;
 }
 
@@ -1131,7 +1171,10 @@ void CameraService::Client::handleRawPicture(const sp<IMemory>& mem) {
 
 // picture callback - compressed picture ready
 void CameraService::Client::handleCompressedPicture(const sp<IMemory>& mem) {
-    disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
+    if (mPictureCount == 0)
+        return;
+    if (--mPictureCount == 0)
+        disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
 
     sp<ICameraClient> c = mCameraClient;
     mLock.unlock();

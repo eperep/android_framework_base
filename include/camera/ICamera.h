@@ -95,9 +95,11 @@ public:
 
     // set preview/capture parameters - key/value pairs
     virtual status_t        setParameters(const String8& params) = 0;
+    virtual status_t        setCustomParameters(const String8& params) = 0;
 
     // get preview/capture parameters - key/value pairs
     virtual String8         getParameters() const = 0;
+    virtual String8         getCustomParameters() const = 0;
 
     // send command to camera driver
     virtual status_t        sendCommand(int32_t cmd, int32_t arg1, int32_t arg2) = 0;

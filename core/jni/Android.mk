@@ -127,6 +127,7 @@ LOCAL_SRC_FILES:= \
 	android_media_JetPlayer.cpp \
 	android_media_ToneGenerator.cpp \
 	android_hardware_Camera.cpp \
+	com_nvidia_NvCamera.cpp \
 	android_hardware_SensorManager.cpp \
 	android_hardware_UsbDevice.cpp \
 	android_hardware_UsbDeviceConnection.cpp \

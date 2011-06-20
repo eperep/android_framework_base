@@ -1747,7 +1747,10 @@ public class Camera {
 
         private HashMap<String, String> mMap;
 
-        private Parameters() {
+        /**
+         * @hide
+         */
+        protected Parameters() {
             mMap = new HashMap<String, String>();
         }
 

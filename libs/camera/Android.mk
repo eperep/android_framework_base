@@ -4,6 +4,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= \
 	Camera.cpp \
 	CameraParameters.cpp \
+	NvCameraParameters.cpp \
 	ICamera.cpp \
 	ICameraClient.cpp \
 	ICameraService.cpp \
