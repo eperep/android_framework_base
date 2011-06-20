@@ -2353,6 +2353,7 @@ static bool isCompatibleBrand(uint32_t fourcc) {
 
         FOURCC('3', 'g', '2', 'a'),  // 3GPP2
         FOURCC('3', 'g', '2', 'b'),
+        FOURCC('3', 'g', 'p', '5'),
     };
 
     for (size_t i = 0;
