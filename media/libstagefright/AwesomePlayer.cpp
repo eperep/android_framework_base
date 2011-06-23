@@ -1873,6 +1873,12 @@ void AwesomePlayer::onVideoEvent() {
             LOGI("XXX mSeekTimeUs = %lld us, timeUs = %lld us",
                  mSeekTimeUs, timeUs);
         }
+        // If seeking video only and and jump is more that one second than esteemated time..
+        // apply AV seek instead to avoid playback pause till audio catch up video
+        if ((mAudioPlayer != NULL) && (timeUs > mSeekTimeUs) && ((timeUs - mSeekTimeUs) >= 1000000ll)) {
+            LOGV("XXX Do a AV seek instead of only video to avoid playback pause till audio catch up \n");
+            mSeeking = SEEK;
+        }
     }
 
     {
