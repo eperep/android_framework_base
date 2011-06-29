@@ -367,11 +367,8 @@ static status_t parseStreamMuxConfig(
     return OK;
 }
 
-sp<ABuffer> AMPEG4AudioAssembler::removeLATMFraming(const sp<ABuffer> &buffer) {
+void AMPEG4AudioAssembler::removeLATMFraming(const sp<ABuffer> &buffer) {
     CHECK(!mMuxConfigPresent);  // XXX to be implemented
-
-    sp<ABuffer> out = new ABuffer(buffer->size());
-    out->setRange(0, 0);
 
     size_t offset = 0;
     uint8_t *ptr = buffer->data();
@@ -415,8 +412,20 @@ sp<ABuffer> AMPEG4AudioAssembler::removeLATMFraming(const sp<ABuffer> &buffer) {
 
         CHECK_LE(offset + payloadLength, buffer->size());
 
-        memcpy(out->data() + out->size(), &ptr[offset], payloadLength);
-        out->setRange(0, out->size() + payloadLength);
+
+        sp<ABuffer> accessUnit = new ABuffer(payloadLength);
+        memcpy(accessUnit->data(), &ptr[offset], payloadLength);
+
+        CopyTimes(accessUnit, *mPackets.begin());
+
+        if (mAccessUnitDamaged)
+            accessUnit->meta()->setInt32("damaged", true);
+
+        sp<AMessage> msg = mNotifyMsg->dup();
+        msg->setObject("access-unit", accessUnit);
+        msg->post();
+
+
 
         offset += payloadLength;
 
@@ -434,7 +443,6 @@ sp<ABuffer> AMPEG4AudioAssembler::removeLATMFraming(const sp<ABuffer> &buffer) {
     }
     CHECK_LE(offset, buffer->size());
 
-    return out;
 }
 
 AMPEG4AudioAssembler::AMPEG4AudioAssembler(
@@ -561,24 +569,18 @@ void AMPEG4AudioAssembler::submitAccessUnit() {
         ++it;
     }
 
-    accessUnit = removeLATMFraming(accessUnit);
-    CopyTimes(accessUnit, *mPackets.begin());
+    removeLATMFraming(accessUnit);
+
 
 #if 0
     printf(mAccessUnitDamaged ? "X" : ".");
     fflush(stdout);
 #endif
 
-    if (mAccessUnitDamaged) {
-        accessUnit->meta()->setInt32("damaged", true);
-    }
 
     mPackets.clear();
     mAccessUnitDamaged = false;
 
-    sp<AMessage> msg = mNotifyMsg->dup();
-    msg->setObject("access-unit", accessUnit);
-    msg->post();
 }
 
 void AMPEG4AudioAssembler::packetLost() {

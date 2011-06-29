@@ -59,7 +59,7 @@ private:
     AssemblyStatus addPacket(const sp<ARTPSource> &source);
     void submitAccessUnit();
 
-    sp<ABuffer> removeLATMFraming(const sp<ABuffer> &buffer);
+    void  removeLATMFraming(const sp<ABuffer> &buffer);
 
     DISALLOW_EVIL_CONSTRUCTORS(AMPEG4AudioAssembler);
 };

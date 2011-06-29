@@ -341,35 +341,28 @@ void AMPEG4ElementaryAssembler::submitAccessUnit() {
     size_t totalSize = 0;
     for (List<sp<ABuffer> >::iterator it = mPackets.begin();
          it != mPackets.end(); ++it) {
-        totalSize += (*it)->size();
-    }
 
-    sp<ABuffer> accessUnit = new ABuffer(totalSize);
-    size_t offset = 0;
-    for (List<sp<ABuffer> >::iterator it = mPackets.begin();
-         it != mPackets.end(); ++it) {
         sp<ABuffer> nal = *it;
-        memcpy(accessUnit->data() + offset, nal->data(), nal->size());
-        offset += nal->size();
-    }
+        sp<ABuffer> accessUnit = new ABuffer(nal->size());
+        memcpy(accessUnit->data(), nal->data(), nal->size());
 
-    CopyTimes(accessUnit, *mPackets.begin());
+        CopyTimes(accessUnit, *mPackets.begin());
 
 #if 0
     printf(mAccessUnitDamaged ? "X" : ".");
     fflush(stdout);
 #endif
 
-    if (mAccessUnitDamaged) {
-        accessUnit->meta()->setInt32("damaged", true);
+        if (mAccessUnitDamaged)
+            accessUnit->meta()->setInt32("damaged", true);
+
+        sp<AMessage> msg = mNotifyMsg->dup();
+        msg->setObject("access-unit", accessUnit);
+        msg->post();
     }
 
     mPackets.clear();
     mAccessUnitDamaged = false;
-
-    sp<AMessage> msg = mNotifyMsg->dup();
-    msg->setObject("access-unit", accessUnit);
-    msg->post();
 }
 
 ARTPAssembler::AssemblyStatus AMPEG4ElementaryAssembler::assembleMore(
