@@ -218,6 +218,8 @@ public class MediaFile {
 
         addFileType("JPG", FILE_TYPE_JPEG, "image/jpeg", MtpConstants.FORMAT_EXIF_JPEG);
         addFileType("JPEG", FILE_TYPE_JPEG, "image/jpeg", MtpConstants.FORMAT_EXIF_JPEG);
+        addFileType("MPO", FILE_TYPE_JPEG, "image/x-mpo", MtpConstants.FORMAT_EXIF_JPEG);
+        addFileType("JPS", FILE_TYPE_JPEG, "image/x-jps", MtpConstants.FORMAT_EXIF_JPEG);
         addFileType("GIF", FILE_TYPE_GIF, "image/gif", MtpConstants.FORMAT_GIF);
         addFileType("PNG", FILE_TYPE_PNG, "image/png", MtpConstants.FORMAT_PNG);
         addFileType("BMP", FILE_TYPE_BMP, "image/x-ms-bmp", MtpConstants.FORMAT_BMP);
