@@ -2474,9 +2474,18 @@ void OMXCodec::onEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
 
         case OMX_EventError:
         {
-            CODEC_LOGE("ERROR(0x%08lx, %ld)", data1, data2);
+            if ((OMX_ErrorPortUnpopulated == (OMX_S32)data1) ||
+                (OMX_ErrorNotReady == (OMX_S32)data1) ||
+                (OMX_ErrorSameState == (OMX_S32)data1)) {
 
-            setState(ERROR);
+                // Not to worry about these errors
+                CODEC_LOGE("Don't care ERROR(0x%08lx, %ld)", data1, data2);
+            }
+            else {
+
+                CODEC_LOGE("ERROR(0x%08lx, %ld)", data1, data2);
+                setState(ERROR);
+            }
             break;
         }
 
