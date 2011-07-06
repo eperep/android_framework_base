@@ -244,7 +244,7 @@ status_t WAVExtractor::init() {
     return NO_INIT;
 }
 
-const size_t WAVSource::kMaxFrameSize = 32768;
+const size_t WAVSource::kMaxFrameSize = 49152;
 
 WAVSource::WAVSource(
         const sp<DataSource> &dataSource,
@@ -332,9 +332,14 @@ status_t WAVSource::read(
     if (err != OK) {
         return err;
     }
-
-    size_t maxBytesToRead =
-        mBitsPerSample == 8 ? kMaxFrameSize / 2 : kMaxFrameSize;
+    size_t maxBytesToRead;
+    if (mBitsPerSample == 8) {
+       maxBytesToRead = kMaxFrameSize / 3;
+    } else if (mBitsPerSample == 16) {
+       maxBytesToRead = (kMaxFrameSize / 3)*2;
+    } else {
+       maxBytesToRead = kMaxFrameSize;
+    }
 
     size_t maxBytesAvailable =
         (mCurrentPos - mOffset >= (off64_t)mSize)
