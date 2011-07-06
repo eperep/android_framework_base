@@ -20,7 +20,8 @@
 
 #include "include/AACExtractor.h"
 #include "include/avc_utils.h"
-
+#include "include/ID3.h"
+#include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/MediaBufferGroup.h>
@@ -38,7 +39,7 @@ public:
     AACSource(const sp<DataSource> &source,
               const sp<MetaData> &meta,
               const Vector<uint64_t> &offset_vector,
-              int64_t frame_duration_us);
+              int64_t frame_duration_us, off64_t pos);
 
     virtual status_t start(MetaData *params = NULL);
     virtual status_t stop();
@@ -60,7 +61,7 @@ private:
     int64_t mCurrentTimeUs;
     bool mStarted;
     MediaBufferGroup *mGroup;
-
+    off64_t mFirstFramePos;
     Vector<uint64_t> mOffsetVector;
     int64_t mFrameDurationUs;
 
@@ -131,24 +132,27 @@ static size_t getAdtsFrameLength(const sp<DataSource> &source, off64_t offset, s
     return frameSize;
 }
 
-AACExtractor::AACExtractor(const sp<DataSource> &source)
+AACExtractor::AACExtractor(const sp<DataSource> &source, const sp<AMessage> &meta)
     : mDataSource(source),
       mInitCheck(NO_INIT),
-      mFrameDurationUs(0) {
+      mFrameDurationUs(0),
+      mFirstFramePos(0){
     String8 mimeType;
     float confidence;
-    if (!SniffAAC(mDataSource, &mimeType, &confidence, NULL)) {
-        return;
+
+    if (meta != NULL){
+             meta->findInt64("post-id3-offset", &mFirstFramePos) ;
     }
 
     uint8_t profile, sf_index, channel, header[2];
-    if (mDataSource->readAt(2, &header, 2) < 2) {
+    if (mDataSource->readAt(mFirstFramePos+2, &header, 2) < 2) {
         return;
     }
 
     profile = (header[0] >> 6) & 0x3;
     sf_index = (header[0] >> 2) & 0xf;
     uint32_t sr = get_sample_rate(sf_index);
+
     if (sr == 0) {
         return;
     }
@@ -156,7 +160,7 @@ AACExtractor::AACExtractor(const sp<DataSource> &source)
 
     mMeta = MakeAACCodecSpecificData(profile, sf_index, channel);
 
-    off64_t offset = 0;
+    off64_t offset = mFirstFramePos;
     off64_t streamSize, numFrames = 0;
     size_t frameSize = 0;
     int64_t duration = 0;
@@ -193,6 +197,59 @@ sp<MetaData> AACExtractor::getMetaData() {
     }
 
     meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_AUDIO_AAC_ADTS);
+    ID3 id3(mDataSource);
+
+    if (!id3.isValid()) {
+        return meta;
+    }
+
+    struct Map {
+        int key;
+        const char *tag1;
+        const char *tag2;
+    };
+    static const Map kMap[] = {
+        { kKeyAlbum, "TALB", "TAL" },
+        { kKeyArtist, "TPE1", "TP1" },
+        { kKeyAlbumArtist, "TPE2", "TP2" },
+        { kKeyComposer, "TCOM", "TCM" },
+        { kKeyGenre, "TCON", "TCO" },
+        { kKeyTitle, "TIT2", "TT2" },
+        { kKeyYear, "TYE", "TYER" },
+        { kKeyAuthor, "TXT", "TEXT" },
+        { kKeyCDTrackNumber, "TRK", "TRCK" },
+        { kKeyDiscNumber, "TPA", "TPOS" },
+        { kKeyCompilation, "TCP", "TCMP" },
+    };
+    static const size_t kNumMapEntries = sizeof(kMap) / sizeof(kMap[0]);
+
+    for (size_t i = 0; i < kNumMapEntries; ++i) {
+        ID3::Iterator *it = new ID3::Iterator(id3, kMap[i].tag1);
+        if (it->done()) {
+            delete it;
+            it = new ID3::Iterator(id3, kMap[i].tag2);
+        }
+
+        if (it->done()) {
+            delete it;
+            continue;
+        }
+
+        String8 s;
+        it->getString(&s);
+        delete it;
+
+        meta->setCString(kMap[i].key, s);
+    }
+
+    size_t dataSize;
+    String8 mime;
+    const void *data = id3.getAlbumArt(&dataSize, &mime);
+
+    if (data) {
+        meta->setData(kKeyAlbumArt, MetaData::TYPE_NONE, data, dataSize);
+        meta->setCString(kKeyAlbumArtMIME, mime.string());
+    }
 
     return meta;
 }
@@ -206,7 +263,7 @@ sp<MediaSource> AACExtractor::getTrack(size_t index) {
         return NULL;
     }
 
-    return new AACSource(mDataSource, mMeta, mOffsetVector, mFrameDurationUs);
+    return new AACSource(mDataSource, mMeta, mOffsetVector, mFrameDurationUs, mFirstFramePos);
 }
 
 sp<MetaData> AACExtractor::getTrackMetaData(size_t index, uint32_t flags) {
@@ -225,7 +282,7 @@ const size_t AACSource::kMaxFrameSize = 8192;
 AACSource::AACSource(
         const sp<DataSource> &source, const sp<MetaData> &meta,
         const Vector<uint64_t> &offset_vector,
-        int64_t frame_duration_us)
+        int64_t frame_duration_us, off64_t pos)
     : mDataSource(source),
       mMeta(meta),
       mOffset(0),
@@ -233,6 +290,7 @@ AACSource::AACSource(
       mStarted(false),
       mGroup(NULL),
       mOffsetVector(offset_vector),
+      mFirstFramePos(pos),
       mFrameDurationUs(frame_duration_us) {
 }
 
@@ -245,7 +303,7 @@ AACSource::~AACSource() {
 status_t AACSource::start(MetaData *params) {
     CHECK(!mStarted);
 
-    mOffset = 0;
+    mOffset = mFirstFramePos;
     mCurrentTimeUs = 0;
     mGroup = new MediaBufferGroup;
     mGroup->add_buffer(new MediaBuffer(kMaxFrameSize));
@@ -318,10 +376,29 @@ status_t AACSource::read(
 
 bool SniffAAC(
         const sp<DataSource> &source, String8 *mimeType, float *confidence,
-        sp<AMessage> *) {
+        sp<AMessage> *meta) {
     uint8_t header[2];
+    uint8_t id3header[10];
+    off64_t post_id3_pos=0;
 
-    if (source->readAt(0, &header, 2) != 2) {
+    if (source->readAt(0, id3header, sizeof(id3header))
+                    < (ssize_t)sizeof(id3header)) {
+                return false;
+            }
+
+            if (!memcmp("ID3", id3header, 3)) {
+
+            // Skip the ID3v2 header.
+            post_id3_pos =
+                ((id3header[6] & 0x7f) << 21)
+                | ((id3header[7] & 0x7f) << 14)
+                | ((id3header[8] & 0x7f) << 7)
+                | (id3header[9] & 0x7f);
+
+            post_id3_pos += 10;
+            }
+
+    if (source->readAt(post_id3_pos, &header, 2) != 2) {
         return false;
     }
 
@@ -329,6 +406,8 @@ bool SniffAAC(
     if ((header[0] == 0xff) && ((header[1] & 0xf6) == 0xf0)) {
         *mimeType = MEDIA_MIMETYPE_AUDIO_AAC_ADTS;
         *confidence = 0.2;
+        *meta = new AMessage;
+        (*meta)->setInt64("post-id3-offset", post_id3_pos);
         return true;
     }
 

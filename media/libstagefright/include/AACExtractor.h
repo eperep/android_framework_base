@@ -29,7 +29,7 @@ class String8;
 
 class AACExtractor : public MediaExtractor {
 public:
-    AACExtractor(const sp<DataSource> &source);
+    AACExtractor(const sp<DataSource> &source,const sp<AMessage> &meta);
 
     virtual size_t countTracks();
     virtual sp<MediaSource> getTrack(size_t index);
@@ -44,7 +44,7 @@ private:
     sp<DataSource> mDataSource;
     sp<MetaData> mMeta;
     status_t mInitCheck;
-
+    off64_t mFirstFramePos;
     Vector<uint64_t> mOffsetVector;
     int64_t mFrameDurationUs;
 
@@ -54,7 +54,7 @@ private:
 
 bool SniffAAC(
         const sp<DataSource> &source, String8 *mimeType, float *confidence,
-        sp<AMessage> *);
+        sp<AMessage> *meta);
 
 }  // namespace android
 
