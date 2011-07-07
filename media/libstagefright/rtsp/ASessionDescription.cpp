@@ -259,17 +259,19 @@ bool ASessionDescription::getDurationUs(int64_t *durationUs) const {
         return false;
     }
 
-    if (strncmp(value.c_str(), "npt=", 4)) {
-        return false;
-    }
-
     float from, to;
-    if (!parseNTPRange(value.c_str() + 4, &from, &to)) {
+    uint8_t offset = 0;
+    if (!strncmp(value.c_str(), "npt", 3)) {
+        // Demiliter in the Range Type field can be npt: npt=
+        offset = 4;
+    } else if ((!strncmp(value.c_str(), "smpte", 5)) || (!strncmp(value.c_str(), "clock", 5))) {
         return false;
     }
 
+    if (!parseNTPRange(value.c_str() + offset, &from, &to)) {
+        return false;
+    }
     *durationUs = (int64_t)((to - from) * 1E6);
-
     return true;
 }
 
