@@ -421,6 +421,9 @@ status_t SampleTable::setSyncSampleParams(off64_t data_offset, size_t data_size)
         LOGV("Table of sync samples is empty or has only a single entry!");
     }
 
+    if (mNumSyncSamples == 0) {
+        mSyncSampleOffset = -1;
+    }
     mSyncSamples = new uint32_t[mNumSyncSamples];
     size_t size = mNumSyncSamples * sizeof(uint32_t);
     if (mDataSource->readAt(mSyncSampleOffset + 8, mSyncSamples, size)
