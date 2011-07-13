@@ -221,6 +221,8 @@ private:
     status_t mPrepareResult;
     status_t mStreamDoneStatus;
 
+    //flag for tracking whether Buffering Start notified properly to listener
+    bool mIsBufferingStartEventNotified;
     void postVideoEvent_l(int64_t delayUs = -1);
     void postBufferingEvent_l();
     void postStreamDoneEvent_l(status_t status);

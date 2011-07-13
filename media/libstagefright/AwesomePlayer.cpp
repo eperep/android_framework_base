@@ -195,7 +195,8 @@ AwesomePlayer::AwesomePlayer()
       mVideoBuffer(NULL),
       mDecryptHandle(NULL),
       mLastVideoTimeUs(-1),
-      mTextPlayer(NULL) {
+      mTextPlayer(NULL),
+      mIsBufferingStartEventNotified(false){
     CHECK_EQ(mClient.connect(), (status_t)OK);
 
     DataSource::RegisterDefaultSniffers();
@@ -763,13 +764,15 @@ void AwesomePlayer::onBufferingUpdate() {
             ensureCacheIsFetching_l();
             sendCacheStats();
             notifyListener_l(MEDIA_INFO, MEDIA_INFO_BUFFERING_START);
+            mIsBufferingStartEventNotified = true;
         } else if (eos || cachedDurationUs > highWaterMarkUs) {
-            if (mFlags & CACHE_UNDERRUN) {
+            if (mFlags & CACHE_UNDERRUN || mIsBufferingStartEventNotified) {
                 LOGI("cache has filled up (%.2f secs), resuming.",
                      cachedDurationUs / 1E6);
                 modifyFlags(CACHE_UNDERRUN, CLEAR);
-                play_l();
                 notifyListener_l(MEDIA_INFO, MEDIA_INFO_BUFFERING_END);
+                play_l();
+                mIsBufferingStartEventNotified = false;
             } else if (mFlags & PREPARING) {
                 LOGV("cache has filled up (%.2f secs), prepare is done",
                      cachedDurationUs / 1E6);
