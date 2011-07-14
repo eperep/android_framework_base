@@ -269,7 +269,8 @@ MPEG4Extractor::MPEG4Extractor(const sp<DataSource> &source)
       mLastTrack(NULL),
       mFileMetaData(new MetaData),
       mFirstSINF(NULL),
-      mIsDrm(false) {
+      mIsDrm(false),
+      m_qtmode(0){
 }
 
 MPEG4Extractor::~MPEG4Extractor() {
@@ -666,6 +667,23 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
 
         return OK;
     }
+    //if ftyp atom .. set up m_qtmode mode
+    if(chunk_type == FOURCC('f','t','y','p')) {
+        uint32_t typval[1];
+        if (mDataSource->readAt(data_offset, typval, 4) < 4) {
+            return ERROR_IO;
+        }
+        //data_offset += 4;
+        uint32_t file_type = ntohl(typval[0]);
+
+        if(file_type == FOURCC('q','t',' ',' ')) {
+            m_qtmode = 1;
+            LOGI(" QT MODE DECIDED \n");
+        }
+        else {
+            LOGI(" NON-QT MODE DECIDED \n");
+        }
+    }
 
     switch(chunk_type) {
         case FOURCC('m', 'o', 'o', 'v'):
@@ -721,9 +739,16 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             off64_t stop_offset = *offset + chunk_size;
             *offset = data_offset;
             while (*offset < stop_offset) {
-                status_t err = parseChunk(offset, depth + 1);
-                if (err != OK) {
-                    return err;
+                if(chunk_type == FOURCC('u','d','t','a')) {
+                    if(stop_offset - *offset < 8) {
+                        *offset = stop_offset;
+                    }
+                }
+                if(*offset < stop_offset) {
+                    status_t err = parseChunk(offset, depth + 1);
+                    if (err != OK) {
+                        return err;
+                    }
                 }
             }
 
@@ -917,6 +942,18 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
         case FOURCC('s', 'a', 'm', 'r'):
         case FOURCC('s', 'a', 'w', 'b'):
         {
+            if(m_qtmode){
+                if (mPath.size() >= 2&& mPath[mPath.size() - 2] == FOURCC('w', 'a', 'v', 'e')) {
+                    *offset += chunk_size;
+                    LOGI("(qtmode) its wave preb node.mp4a. so break here...\n");
+                    break;
+
+                }
+                else{
+                    LOGI("atoms_path: -1: %d -2:%d -3:%d \n", mPath[mPath.size()-1],mPath[mPath.size()-2],mPath[mPath.size()-3]);
+                }
+            }
+            //read sound media description - ver0, ver1....
             uint8_t buffer[8 + 20];
             if (chunk_data_size < (ssize_t)sizeof(buffer)) {
                 // Basic AudioSampleEntry size.
@@ -929,9 +966,16 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             }
 
             uint16_t data_ref_index = U16_AT(&buffer[6]);
+            uint16_t version = U16_AT(&buffer[8]);
+            uint16_t rev_level = U16_AT(&buffer[10]);
+            uint32_t vendorid = U32_AT(&buffer[12]);
+            char vendorStr[5];
+            MakeFourCCString(vendorid, vendorStr);
             uint16_t num_channels = U16_AT(&buffer[16]);
 
             uint16_t sample_size = U16_AT(&buffer[18]);
+            //compression id - 16b - [20]
+            //pkt sz - 16b [22]
             uint32_t sample_rate = U32_AT(&buffer[24]) >> 16;
 
             if (!strcasecmp(MEDIA_MIMETYPE_AUDIO_AMR_NB,
@@ -955,8 +999,34 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             mLastTrack->meta->setInt32(kKeyChannelCount, num_channels);
             mLastTrack->meta->setInt32(kKeySampleRate, sample_rate);
 
+            int extraread = 0;
+            if(m_qtmode) {
+                if(version == 1) {
+                    //skip 16 bytes as of now
+                    extraread = 16;
+                    uint8_t buffer1[16];
+                    if (mDataSource->readAt(data_offset+20, buffer1, sizeof(buffer1)) < (ssize_t)sizeof(buffer1)) {
+                        return ERROR_IO;
+                    }
+                    else {
+                        LOGI("qtmode/ver=1 , extradataread 16 \n");
+                    }
+                    //ASSERT(DECOMPRESSORID ==2) /// It follows frma,wave,esds,..etc variants of it... terminator atom!
+                }
+                else if (version == 2) {
+                    extraread = 36;
+                    uint8_t buffer12[36];
+                    if (mDataSource->readAt(data_offset+20, buffer12, sizeof(buffer12)) < (ssize_t)sizeof(buffer12)) {
+                        return ERROR_IO;
+                    }
+                    else {
+                        LOGI("qtmode/ver=2 , extradataread 36 \n");
+                    }
+                }
+            }
+
             off64_t stop_offset = *offset + chunk_size;
-            *offset = data_offset + sizeof(buffer);
+            *offset = data_offset + sizeof(buffer) + extraread;
             while (*offset < stop_offset) {
                 status_t err = parseChunk(offset, depth + 1);
                 if (err != OK) {
@@ -1010,9 +1080,14 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             off64_t stop_offset = *offset + chunk_size;
             *offset = data_offset + sizeof(buffer);
             while (*offset < stop_offset) {
-                status_t err = parseChunk(offset, depth + 1);
-                if (err != OK) {
-                    return err;
+                if(stop_offset - *offset < 8) {
+                    *offset = stop_offset;
+                }
+                else {
+                    status_t err = parseChunk(offset, depth + 1);
+                    if (err != OK) {
+                        return err;
+                    }
                 }
             }
 
@@ -1401,6 +1476,26 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             break;
         }
 
+        case FOURCC('w', 'a' , 'v' , 'e'):
+        {
+            //it is valid in qtmode & ver =1 & compressionId=2
+            //TODO: do those checks..
+            //.. then , we will have frma, mp4a (place holder!), esds, terminator atom!
+
+            off_t stop_offset = *offset + chunk_size;
+            *offset = data_offset;
+            while (*offset < stop_offset) {
+                status_t err = parseChunk(offset, depth + 1);
+                if (err != OK) {
+                    return err;
+                }
+            }
+
+            if (*offset != stop_offset) {
+                return ERROR_MALFORMED;
+            }
+            break;
+        }
         default:
         {
             *offset += chunk_size;
@@ -2223,7 +2318,8 @@ static bool LegacySniffMPEG4(
         || !memcmp(header, "ftyp3ge6", 8) || !memcmp(header, "ftyp3gg6", 8)
         || !memcmp(header, "ftypisom", 8) || !memcmp(header, "ftypM4V ", 8)
         || !memcmp(header, "ftypM4A ", 8) || !memcmp(header, "ftypf4v ", 8)
-        || !memcmp(header, "ftypkddi", 8) || !memcmp(header, "ftypM4VP", 8)) {
+        || !memcmp(header, "ftypkddi", 8) || !memcmp(header, "ftypM4VP", 8)
+        || !memcmp(header, "ftypqt  ", 8) || !memcmp(header, "ftypQT  ", 8)) {
         *mimeType = MEDIA_MIMETYPE_CONTAINER_MPEG4;
         *confidence = 0.4;
 

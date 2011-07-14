@@ -95,6 +95,11 @@ public class MediaFile {
     private static final int FIRST_DRM_FILE_TYPE = FILE_TYPE_FL;
     private static final int LAST_DRM_FILE_TYPE = FILE_TYPE_FL;
 
+    // Video file types extended to add more types
+    public static final int FILE_TYPE_MOV     = 61;
+    private static final int FIRST_MORE_VIDEO_FILE_TYPE = FILE_TYPE_MOV;
+    private static final int LAST_MORE_VIDEO_FILE_TYPE = FILE_TYPE_MOV;
+
     // Other popular file types
     public static final int FILE_TYPE_TEXT          = 100;
     public static final int FILE_TYPE_HTML          = 101;
@@ -202,6 +207,7 @@ public class MediaFile {
         addFileType("WEBM", FILE_TYPE_WEBM, "video/webm");
         addFileType("TS", FILE_TYPE_MP2TS, "video/mp2ts");
         addFileType("AVI", FILE_TYPE_AVI, "video/avi");
+        addFileType("MOV", FILE_TYPE_MOV, "video/quicktime");
 
         if (isWMVEnabled()) {
             addFileType("WMV", FILE_TYPE_WMV, "video/x-ms-wmv", MtpConstants.FORMAT_WMV);
@@ -245,8 +251,10 @@ public class MediaFile {
     }
 
     public static boolean isVideoFileType(int fileType) {
-        return (fileType >= FIRST_VIDEO_FILE_TYPE &&
-                fileType <= LAST_VIDEO_FILE_TYPE);
+        return ((fileType >= FIRST_VIDEO_FILE_TYPE &&
+                fileType <= LAST_VIDEO_FILE_TYPE) ||
+                (fileType >= FIRST_MORE_VIDEO_FILE_TYPE &&
+                fileType <= LAST_MORE_VIDEO_FILE_TYPE));
     }
 
     public static boolean isImageFileType(int fileType) {

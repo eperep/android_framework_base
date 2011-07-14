@@ -93,6 +93,8 @@ private:
 
     MPEG4Extractor(const MPEG4Extractor &);
     MPEG4Extractor &operator=(const MPEG4Extractor &);
+
+    int m_qtmode; // 1 - mov;qt;  0-iso mode;
 };
 
 bool SniffMPEG4(
