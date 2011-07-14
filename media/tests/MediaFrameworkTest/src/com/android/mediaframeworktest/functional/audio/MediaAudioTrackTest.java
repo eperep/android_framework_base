@@ -336,8 +336,12 @@ public class MediaAudioTrackTest extends ActivityInstrumentationTestCase2<MediaF
         byte data[] = new byte[minBuffSize/2];
         //--------    test        --------------
         assumeTrue(TEST_NAME, track.getState() == AudioTrack.STATE_INITIALIZED);
-        track.write(data, 0, data.length);
-        track.write(data, 0, data.length);
+        int written = track.write(data, 0, data.length);
+        int pending = data.length - written;
+        written = track.write(data, 0, data.length);
+        pending += (data.length - written);
+        if(pending != 0)
+            track.write(data, 0, pending);
         track.play();
         Thread.sleep(100);
         log(TEST_NAME, "position ="+ track.getPlaybackHeadPosition());
@@ -364,8 +368,12 @@ public class MediaAudioTrackTest extends ActivityInstrumentationTestCase2<MediaF
         byte data[] = new byte[minBuffSize/2];
         //--------    test        --------------
         assumeTrue(TEST_NAME, track.getState() == AudioTrack.STATE_INITIALIZED);
-        track.write(data, 0, data.length);
-        track.write(data, 0, data.length);
+        int written = track.write(data, 0, data.length);
+        int pending = data.length - written;
+        written = track.write(data, 0, data.length);
+        pending += (data.length - written);
+        if(pending != 0)
+            track.write(data, 0, pending);
         track.play();
         Thread.sleep(100);
         track.stop();
@@ -394,8 +402,12 @@ public class MediaAudioTrackTest extends ActivityInstrumentationTestCase2<MediaF
         byte data[] = new byte[minBuffSize/2];
         //--------    test        --------------
         assumeTrue(TEST_NAME, track.getState() == AudioTrack.STATE_INITIALIZED);
-        track.write(data, 0, data.length);
-        track.write(data, 0, data.length);
+        int written = track.write(data, 0, data.length);
+        int pending = data.length - written;
+        written = track.write(data, 0, data.length);
+        pending += (data.length - written);
+        if(pending != 0)
+            track.write(data, 0, pending);
         track.play();
         Thread.sleep(100);
         track.stop();
@@ -425,8 +437,12 @@ public class MediaAudioTrackTest extends ActivityInstrumentationTestCase2<MediaF
         byte data[] = new byte[minBuffSize/2];
         //--------    test        --------------
         assumeTrue(TEST_NAME, track.getState() == AudioTrack.STATE_INITIALIZED);
-        track.write(data, 0, data.length);
-        track.write(data, 0, data.length);
+        int written = track.write(data, 0, data.length);
+        int pending = data.length - written;
+        written = track.write(data, 0, data.length);
+        pending += (data.length - written);
+        if(pending != 0)
+            track.write(data, 0, pending);
         track.play();
         Thread.sleep(100);
         track.pause();

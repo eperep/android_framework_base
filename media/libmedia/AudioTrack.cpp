@@ -959,7 +959,7 @@ ssize_t AudioTrack::write(const void* buffer, size_t userSize)
 
     if (mSharedBuffer != 0) return INVALID_OPERATION;
 
-    if (ssize_t(userSize) < 0) {
+    if (ssize_t(userSize) < 0 || userSize < frameSize()) {
         // sanity-check. user is most-likely passing an error code.
         LOGE("AudioTrack::write(buffer=%p, size=%u (%d)",
                 buffer, userSize, userSize);
@@ -981,6 +981,9 @@ ssize_t AudioTrack::write(const void* buffer, size_t userSize)
     size_t frameSz = (size_t)frameSize();
 
     do {
+        if (userSize < frameSize())
+            return written;
+
         audioBuffer.frameCount = userSize/frameSz;
 
         // Calling obtainBuffer() with a negative wait count causes
