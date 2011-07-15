@@ -351,6 +351,20 @@ VideoFrame *StagefrightMetadataRetriever::getFrameAtTime(
                         timeUs, option);
     }
 
+    //seek to 0 if thumnail extraction fails
+    if (frame == NULL) {
+        frame = extractVideoFrameWithCodecFlags(
+                &mClient, trackMeta, source, OMXCodec::kPreferSoftwareCodecs,
+                0, option);
+
+        if (frame == NULL) {
+            LOGV("Software decoder failed to extract thumbnail, "
+                 "trying hardware decoder.");
+
+            frame = extractVideoFrameWithCodecFlags(&mClient, trackMeta, source, 0,
+                            0, option);
+        }
+    }
     return frame;
 }
 
