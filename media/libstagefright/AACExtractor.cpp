@@ -168,7 +168,13 @@ AACExtractor::AACExtractor(const sp<DataSource> &source, const sp<AMessage> &met
     if (mDataSource->getSize(&streamSize) == OK) {
          while (offset < streamSize) {
             if ((frameSize = getAdtsFrameLength(source, offset, NULL)) == 0) {
-                return;
+            //check for last data as ID3v1, always present at end
+                uint8_t id3v1[3];
+                mDataSource->readAt(offset, &id3v1, 3);
+                if (!memcmp("TAG", id3v1, 3))
+                    break;
+                else
+                    return;
             }
 
             mOffsetVector.push(offset);
