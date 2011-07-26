@@ -95,6 +95,13 @@ private:
     sp<MediaPlayerBase::AudioSink> mAudioSink;
     AwesomePlayer *mObserver;
 
+    int64_t mStartTimeUs;
+    int64_t mPauseTimeAdjust;
+    bool mClockRunning;
+
+    int64_t GetTimeSinceStartTime() const;
+    void ResetStartTime();
+
     static void AudioCallback(int event, void *user, void *info);
     void AudioCallback(int event, void *info);
 

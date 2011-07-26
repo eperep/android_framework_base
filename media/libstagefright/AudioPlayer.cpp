@@ -26,6 +26,7 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
+#include <media/stagefright/foundation/ALooper.h>
 
 #include "include/AwesomePlayer.h"
 
@@ -50,7 +51,10 @@ AudioPlayer::AudioPlayer(
       mFirstBufferResult(OK),
       mFirstBuffer(NULL),
       mAudioSink(audioSink),
-      mObserver(observer) {
+      mObserver(observer),
+      mStartTimeUs(0),
+      mPauseTimeAdjust(0),
+      mClockRunning(false) {
 }
 
 AudioPlayer::~AudioPlayer() {
@@ -189,6 +193,10 @@ void AudioPlayer::pause(bool playPendingSamples) {
             mAudioTrack->pause();
         }
     }
+
+    mClockRunning = false;
+    mPauseTimeAdjust = GetTimeSinceStartTime();
+    ResetStartTime();
 }
 
 void AudioPlayer::resume() {
@@ -248,6 +256,9 @@ void AudioPlayer::reset() {
     mReachedEOS = false;
     mFinalStatus = OK;
     mStarted = false;
+    mPauseTimeAdjust = 0;
+    mStartTimeUs = 0;
+    mClockRunning = false;
 }
 
 // static
@@ -457,7 +468,26 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
         mObserver->postAudioSeekComplete();
     }
 
+    mClockRunning = true;
+    mPauseTimeAdjust = 0;
+    ResetStartTime();
+
     return size_done;
+}
+
+int64_t AudioPlayer::GetTimeSinceStartTime() const {
+    int64_t timeAdjust = mPauseTimeAdjust;
+
+    if (mClockRunning && mStartTimeUs != 0)
+    {
+        timeAdjust += ALooper::GetNowUs() - mStartTimeUs;
+    }
+
+    return timeAdjust;
+}
+
+void AudioPlayer::ResetStartTime() {
+    mStartTimeUs = ALooper::GetNowUs();
 }
 
 int64_t AudioPlayer::getRealTimeUs() {
@@ -468,7 +498,8 @@ int64_t AudioPlayer::getRealTimeUs() {
 int64_t AudioPlayer::getRealTimeUsLocked() const {
     CHECK(mStarted);
     CHECK_NE(mSampleRate, 0);
-    return -mLatencyUs + (mNumFramesPlayed * 1000000) / mSampleRate;
+    return -mLatencyUs + (mNumFramesPlayed * 1000000) / mSampleRate +
+           GetTimeSinceStartTime();
 }
 
 int64_t AudioPlayer::getMediaTimeUs() {
@@ -507,6 +538,9 @@ status_t AudioPlayer::seekTo(int64_t time_us) {
     mPositionTimeRealUs = mPositionTimeMediaUs = -1;
     mReachedEOS = false;
     mSeekTimeUs = time_us;
+    mPauseTimeAdjust = 0;
+    mStartTimeUs = 0;
+    mClockRunning = false;
 
     // Flush resets the number of played frames
     mNumFramesPlayed = 0;
