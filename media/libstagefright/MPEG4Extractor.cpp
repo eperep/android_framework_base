@@ -2063,6 +2063,14 @@ status_t MPEG4Source::read(
         if (err == OK) {
             err = mSampleTable->findSyncSampleNear(
                     sampleIndex, &syncSampleIndex, findFlags);
+
+            if(!syncSampleIndex && (err !=OK))
+            {
+                //might be there is no sync frame post seek time.check for closest seek frame.
+                findFlags = SampleTable::kFlagClosest;
+                err = mSampleTable->findSyncSampleNear(
+                    sampleIndex, &syncSampleIndex, findFlags);
+            }
         }
 
         uint32_t sampleTime;
