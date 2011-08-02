@@ -19,14 +19,19 @@ keylayouts := \
     Generic.kl \
     AVRCP.kl \
     qwerty.kl \
+    Vendor_044f_Product_d007.kl \
     Vendor_045e_Product_028e.kl \
     Vendor_046d_Product_c216.kl \
+    Vendor_046d_Product_c21d.kl \
+    Vendor_046d_Product_c21f.kl \
     Vendor_046d_Product_c294.kl \
     Vendor_046d_Product_c299.kl \
     Vendor_046d_Product_c532.kl \
     Vendor_054c_Product_0268.kl \
+    Vendor_057e_Product_0306.kl \
     Vendor_05ac_Product_0239.kl \
-    Vendor_22b8_Product_093d.kl
+    Vendor_22b8_Product_093d.kl \
+    Bluetooth_00_06_66_42.kl
 
 keycharmaps := \
     Generic.kcm \

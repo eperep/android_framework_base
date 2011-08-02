@@ -13,7 +13,10 @@
 # limitations under the License.
 
 #
-# XBox 360 USB Controller
+# Logitech Wireless Gamepad F710.
+# Effectively identical (in codes) to Logitech Gamepad F310.
+# Very similar to XBox 360 controller (with switch in X position).
+# This is due to XInput support in the F310 and F710 controller.
 #
 # NVIDIA Normalized Gamepad
 
@@ -27,11 +30,14 @@ key 0x136    BUTTON_L1
 key 0x137    BUTTON_R1
 key 0x13a    BACK
 key 0x13b    BUTTON_START
-# Button with Xbox logo maps to HOME.
+# Button with Logitech logo maps to HOME.
 key 0x13c    HOME
 # These two keycodes are for click (press from above) on analog control sticks.
 key 0x13d    BUTTON_THUMBL
 key 0x13e    BUTTON_THUMBR
+
+# Note: Content from here to the end of this file are copied verbatim from
+#       correspondent section in the "XBox 360 USB Controller" .kl file.
 
 # Left (0x00, 0x01) and right (0x03, 0x04) analog control stick.
 # The reported value for flat is 128 out of a range from -32767 to 32768, which is absurd.
@@ -45,10 +51,11 @@ axis 0x04 RZ flat 4096
 # Triggers.
 # (Shoulder trigger buttons marked with "LT" and "RT" are analog.
 # Each axis has range from 0 to 255.)
-axis 0x02 LTRIGGER
-axis 0x05 RTRIGGER
+axis 0x02    LTRIGGER
+axis 0x05    RTRIGGER
 
 # Hat.
 # (D-pad is reported as analog. Each axis has range from -1 to 1.)
-axis 0x10 HAT_X
-axis 0x11 HAT_Y
+axis 0x10    HAT_X
+axis 0x11    HAT_Y
+
