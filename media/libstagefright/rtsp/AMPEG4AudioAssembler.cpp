@@ -345,6 +345,12 @@ static status_t parseStreamMuxConfig(
 
             unsigned otherDataLenEsc;
             do {
+                if(bits->numBitsLeft() < 9)
+                {
+                    *otherDataPresent = 0;
+                    *otherDataLenBits = 0;
+                    return OK;
+                }
                 (*otherDataLenBits) <<= 8;
                 otherDataLenEsc = bits->getBits(1);
                 unsigned otherDataLenTmp = bits->getBits(8);
