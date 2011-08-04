@@ -228,13 +228,49 @@ bool ASessionDescription::getDimensions(
     *width = 0;
     *height = 0;
 
+    bool status = false;
     char key[20];
     sprintf(key, "a=framesize:%lu", PT);
     AString value;
     if (!findAttribute(index, key, &value)) {
-        return false;
-    }
+        sprintf(key, "a=Width");
+        if (!findAttribute(index, key, &value)) {
+            char *val = strchr(value.c_str(),';');
+            if (val != NULL) {
+               val++;
+               *width = atoi(val);
+               LOGV("Width = %d",*width);
+               sprintf(key, "a=Height");
+               if (findAttribute(index, key, &value)) {
+                  char *val = strchr(value.c_str(),';');
+                  if (val != NULL) {
+                      val++;
+                      *height = atoi(val);
+                       LOGV("Height = %d",*height);
+                       status = true;
+                  }
+               }
+            }
+        }
 
+        if (status == false)
+        {
+            sprintf(key, "a=cliprect");
+            if (findAttribute(index, key, &value)){
+                char *val = strchr(value.c_str(),',');
+                if (val != NULL) {
+                    val = strchr(++val,',');
+                    *height = atoi(++val);
+                    LOGV("Height = %d",*height);
+                    val = strchr(val,',');
+                    *width = atoi(++val);
+                    LOGV("Width = %d",*width);
+                    status = true;
+                }
+            }
+        }
+        return status;
+    }
     const char *s = value.c_str();
     char *end;
     *width = strtoul(s, &end, 10);
