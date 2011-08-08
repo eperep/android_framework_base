@@ -174,8 +174,8 @@ struct MyHandler : public AHandler {
 
     int64_t getNormalPlayTimeUs() {
         int64_t maxTimeUs = 0;
-        for (size_t i = 0; i < mTracks.size(); ++i) {
-            int64_t timeUs = mTracks.editItemAt(i).mPacketSource
+        for (size_t i = 0; i < mPacketSources.size(); ++i) {
+            int64_t timeUs = mPacketSources.editItemAt(i)
                 ->getNormalPlayTimeUs();
 
             if (i == 0 || timeUs > maxTimeUs) {
@@ -1126,6 +1126,7 @@ private:
     bool mSeekable;
 
     Vector<TrackInfo> mTracks;
+    Vector<sp<APacketSource> > mPacketSources;
 
     sp<AMessage> mDoneMsg;
 
@@ -1153,6 +1154,7 @@ private:
         TrackInfo *info = &mTracks.editItemAt(mTracks.size() - 1);
         info->mURL = trackURL;
         info->mPacketSource = source;
+        mPacketSources.push(source);
         info->mUsingInterleavedTCP = false;
         info->mFirstSeqNumInSegment = 0;
         info->mNewSegment = true;
