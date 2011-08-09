@@ -32,6 +32,30 @@
 
 namespace android {
 
+struct AudioPlayerEvent : public TimedEventQueue::Event {
+    AudioPlayerEvent(
+            AudioPlayer *player,
+            void (AudioPlayer::*method)())
+        : mAudioPlayer(player),
+          mMethod(method) {
+    }
+
+protected:
+    virtual ~AudioPlayerEvent() {}
+
+    virtual void fire(TimedEventQueue *queue, int64_t /* now_us */) {
+        (mAudioPlayer->*mMethod)();
+    }
+
+private:
+    AudioPlayer *mAudioPlayer;
+    void (AudioPlayer::*mMethod)();
+
+    AudioPlayerEvent(const AudioPlayerEvent &);
+    AudioPlayerEvent &operator=(const AudioPlayerEvent &);
+};
+
+
 AudioPlayer::AudioPlayer(
         const sp<MediaPlayerBase::AudioSink> &audioSink,
         AwesomePlayer *observer)
@@ -55,11 +79,19 @@ AudioPlayer::AudioPlayer(
       mStartTimeUs(0),
       mPauseTimeAdjust(0),
       mClockRunning(false) {
+
+    mPortSettingsChangedEvent = new AudioPlayerEvent(this, &AudioPlayer::onPortSettingsChangedEvent);
+    mPortSettingsChangedEventPending = false;
+    mQueueStarted = false;
+
 }
 
 AudioPlayer::~AudioPlayer() {
     if (mStarted) {
         reset();
+    }
+    if (mQueueStarted) {
+        mQueue.stop();
     }
 }
 
@@ -80,6 +112,12 @@ status_t AudioPlayer::start(bool sourceAlreadyStarted) {
             return err;
         }
     }
+
+    if (!mQueueStarted) {
+        mQueue.start();
+        mQueueStarted = true;
+    }
+
 
     // We allow an optional INFO_FORMAT_CHANGED at the very beginning
     // of playback, if there is one, getFormat below will retrieve the
@@ -319,6 +357,97 @@ uint32_t AudioPlayer::getNumFramesPendingPlayout() const {
     return mNumFramesPlayed - numFramesPlayedOut;
 }
 
+void AudioPlayer::onPortSettingsChangedEvent() {
+    status_t err = OK;
+    sp<MetaData> format;
+    bool success;
+
+    Mutex::Autolock autoLock(mLock);
+
+    if (!mPortSettingsChangedEventPending) {
+        goto onPortSettingsChangedEvent_exit;
+    }
+
+    // close exisiting playback
+    if (mAudioSink.get() != NULL) {
+        mAudioSink->stop();
+        mAudioSink->close();
+    } else {
+        mAudioTrack->stop();
+        delete mAudioTrack;
+        mAudioTrack = NULL;
+    }
+
+    // open new
+    format = mSource->getFormat();
+    const char *mime;
+    success = format->findCString(kKeyMIMEType, &mime);
+    CHECK(success);
+    CHECK(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_RAW));
+
+    success = format->findInt32(kKeySampleRate, &mSampleRate);
+    CHECK(success);
+
+    int32_t numChannels;
+    success = format->findInt32(kKeyChannelCount, &numChannels);
+    CHECK(success);
+
+    LOGV("New sample rate %d channels %d", mSampleRate, numChannels);
+
+    if (mAudioSink.get() != NULL) {
+        err = mAudioSink->open(
+                mSampleRate, numChannels, AUDIO_FORMAT_PCM_16_BIT,
+                DEFAULT_AUDIOSINK_BUFFERCOUNT,
+                &AudioPlayer::AudioSinkCallback, this);
+        if (err != OK) {
+            LOGE("mAudioSink->open error : %d", err);
+            goto onPortSettingsChangedEvent_exit;
+        }
+
+        mLatencyUs = (int64_t)mAudioSink->latency() * 1000;
+        mFrameSize = mAudioSink->frameSize();
+
+        mAudioSink->start();
+    } else {
+        mAudioTrack = new AudioTrack(
+                AUDIO_STREAM_MUSIC, mSampleRate, AUDIO_FORMAT_PCM_16_BIT,
+                (numChannels == 2)
+                    ? AUDIO_CHANNEL_OUT_STEREO
+                    : AUDIO_CHANNEL_OUT_MONO,
+                0, 0, &AudioCallback, this, 0);
+
+        if ((err = mAudioTrack->initCheck()) != OK) {
+
+            LOGE("AudioTrack error : %d", err);
+
+            delete mAudioTrack;
+            mAudioTrack = NULL;
+
+            goto onPortSettingsChangedEvent_exit;
+        }
+
+        mLatencyUs = (int64_t)mAudioTrack->latency() * 1000;
+        mFrameSize = mAudioTrack->frameSize();
+
+        mAudioTrack->start();
+    }
+
+    mPortSettingsChangedEventPending = false;
+
+onPortSettingsChangedEvent_exit:
+
+    if (err != OK) {
+        if (mObserver && !mReachedEOS) {
+            mObserver->postAudioEOS();
+        }
+
+        mReachedEOS = true;
+        mFinalStatus = err;
+    }
+
+    return;
+}
+
 size_t AudioPlayer::fillBuffer(void *data, size_t size) {
     if (mNumFramesPlayed == 0) {
         LOGV("AudioCallback");
@@ -331,6 +460,14 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
     bool postSeekComplete = false;
     bool postEOS = false;
     int64_t postEOSDelayUs = 0;
+    bool postPortSettingsChanged = false;
+
+    if (true == mPortSettingsChangedEventPending) {
+        LOGV("Waiting for reconfig to finish... filling zeros");
+        memset(data, 0, size);
+
+        return size;
+    }
 
     size_t size_done = 0;
     size_t size_remaining = size;
@@ -374,6 +511,12 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
                 mIsFirstBuffer = false;
             } else {
                 err = mSource->read(&mInputBuffer, &options);
+            }
+
+            if (err == INFO_FORMAT_CHANGED) {
+                LOGV("INFO_FORMAT_CHANGED");
+                postPortSettingsChanged = true;
+                break;
             }
 
             CHECK((err == OK && mInputBuffer != NULL)
@@ -468,6 +611,10 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
         mObserver->postAudioSeekComplete();
     }
 
+    if (postPortSettingsChanged) {
+        mPortSettingsChangedEventPending = true;
+        mQueue.postEvent(mPortSettingsChangedEvent);
+    }
     if (!mReachedEOS) {
         mClockRunning = true;
     }

@@ -18,6 +18,8 @@
 
 #define AUDIO_PLAYER_H_
 
+#include "include/TimedEventQueue.h"
+
 #include <media/MediaPlayerInterface.h>
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/TimeSource.h>
@@ -116,6 +118,13 @@ private:
     void reset();
 
     uint32_t getNumFramesPendingPlayout() const;
+
+    void onPortSettingsChangedEvent();
+
+    TimedEventQueue mQueue;
+    bool mQueueStarted;
+    sp<TimedEventQueue::Event> mPortSettingsChangedEvent;
+    bool mPortSettingsChangedEventPending;
 
     AudioPlayer(const AudioPlayer &);
     AudioPlayer &operator=(const AudioPlayer &);
