@@ -57,6 +57,7 @@ private:
     int16_t mInputFrame[160];
     int32_t mNumInputSamples;
 
+    status_t initCheck();
     AMRNBEncoder(const AMRNBEncoder &);
     AMRNBEncoder &operator=(const AMRNBEncoder &);
 };

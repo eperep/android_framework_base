@@ -69,6 +69,18 @@ static Mode PickModeFromBitrate(int32_t bps) {
     }
 }
 
+status_t AMRNBEncoder::initCheck() {
+    int32_t bitRate;
+
+   // Configure AMRNB encoder$
+    if (mMeta->findInt32(kKeyBitRate, &bitRate)) {
+        mMode = PickModeFromBitrate(bitRate);
+    } else {
+        mMode = MR475;
+    }
+    return OK;
+}
+
 status_t AMRNBEncoder::start(MetaData *params) {
     if (mStarted) {
         LOGW("Call start() when encoder already started");
@@ -76,11 +88,12 @@ status_t AMRNBEncoder::start(MetaData *params) {
     }
 
     mBufferGroup = new MediaBufferGroup;
-    mBufferGroup->add_buffer(new MediaBuffer(32));
+    mBufferGroup->add_buffer(new MediaBuffer(1024));
 
     CHECK_EQ(AMREncodeInit(
                 &mEncState, &mSidState, false /* dtx_enable */),
              0);
+    CHECK_EQ(OK, this->initCheck());
 
     mSource->start(params);
 
@@ -88,13 +101,6 @@ status_t AMRNBEncoder::start(MetaData *params) {
     mNumFramesOutput = 0;
     mStarted = true;
     mNumInputSamples = 0;
-
-    int32_t bitrate;
-    if (params && params->findInt32(kKeyBitRate, &bitrate)) {
-        mMode = PickModeFromBitrate(bitrate);
-    } else {
-        mMode = MR475;
-    }
 
     return OK;
 }
