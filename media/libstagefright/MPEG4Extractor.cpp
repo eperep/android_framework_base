@@ -686,6 +686,11 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
         }
     }
 
+    if(chunk_type == 0x00000000) {
+        mLastTrack->TerminatorAtomReached = true;
+        *offset += chunk_size;
+           return OK;
+    }
     switch(chunk_type) {
         case FOURCC('m', 'o', 'o', 'v'):
         case FOURCC('t', 'r', 'a', 'k'):
@@ -730,6 +735,8 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
                 }
                 mLastTrack = track;
 
+                mLastTrack->esds_success = false;
+                mLastTrack->TerminatorAtomReached = false;
                 track->meta = new MetaData;
                 track->includes_expensive_metadata = false;
                 track->skipTrack = false;
@@ -929,6 +936,10 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             for (uint32_t i = 0; i < entry_count; ++i) {
                 status_t err = parseChunk(offset, depth + 1);
                 if (err != OK) {
+                    if(mLastTrack->esds_success == true && mLastTrack->TerminatorAtomReached == true) {
+                        *offset = stop_offset;
+                        return OK;
+                    }
                     return err;
                 }
             }
@@ -1252,6 +1263,7 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             }
 
             *offset += chunk_size;
+            mLastTrack->esds_success = true;
             break;
         }
 

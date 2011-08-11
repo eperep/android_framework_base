@@ -53,6 +53,8 @@ private:
         sp<SampleTable> sampleTable;
         bool includes_expensive_metadata;
         bool skipTrack;
+        bool esds_success;
+        bool TerminatorAtomReached;
     };
 
     sp<DataSource> mDataSource;
