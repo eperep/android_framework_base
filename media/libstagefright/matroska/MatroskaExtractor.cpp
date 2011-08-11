@@ -205,6 +205,9 @@ MatroskaSource::~MatroskaSource() {
 }
 
 status_t MatroskaSource::start(MetaData *params) {
+    if (mExtractor->mAsiNullFlag)
+        return UNKNOWN_ERROR;
+
     mBlockIter.reset();
 
     return OK;
@@ -568,6 +571,7 @@ MatroskaExtractor::MatroskaExtractor(const sp<DataSource> &source)
     : mDataSource(source),
       mReader(new DataSourceReader(mDataSource)),
       mSegment(NULL),
+      mAsiNullFlag(false),
       mExtractedThumbnails(false),
       mIsWebm(false) {
     off64_t size;
@@ -792,10 +796,13 @@ void MatroskaExtractor::addTracks() {
                     meta->setData(kKeyAVCC, 0, codecPrivate, codecPrivateSize);
                 } else if (!strcmp("V_VP8", codecID)) {
                     meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_VPX);
-                } else if  (!strcmp ("V_MPEG4/ISO/ASP", codecID)) {
+                } else if ((!strcmp ("V_MS/VFW/FOURCC", codecID)) ||
+                    (!strcmp ("V_MPEG4/ISO/ASP", codecID))) {
+                    if (codecPrivate == NULL)
+                        mAsiNullFlag = true;
                     meta->setCString(kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_MPEG4);
                     addESDSFromVideoSpecificInfo(meta, codecPrivate, codecPrivateSize);
-                }else {
+                } else {
                     continue;
                 }
 
