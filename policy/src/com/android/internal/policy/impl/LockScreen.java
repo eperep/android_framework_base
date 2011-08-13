@@ -385,7 +385,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_MENU && mEnableMenuKeyInLockScreen) {
+        if ((keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_BUTTON_START) && mEnableMenuKeyInLockScreen) {
             mCallback.goToUnlockScreen();
         }
         return false;
