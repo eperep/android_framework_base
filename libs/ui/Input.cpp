@@ -19,6 +19,9 @@
 // Log debug messages about acceleration.
 #define DEBUG_ACCELERATION 0
 
+//Used for identifying bluetooth devices without proper vendor/product id
+#define BUS_BLUETOOTH		0x05
+#define BLUETOOTH_ADDR_SIZE     17
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -91,6 +94,29 @@ String8 getInputDeviceConfigurationFilePathByDeviceIdentifier(
                 type));
         if (!productPath.isEmpty()) {
             return productPath;
+        }
+    } else if (deviceIdentifier.bus == BUS_BLUETOOTH &&
+               deviceIdentifier.uniqueId.length() == BLUETOOTH_ADDR_SIZE) {
+        //This clause is a WAR for bluetooth HID devices that don't expose
+        //a usable vendorId and productId.
+        //
+        //First 32 bits of bluetooth device's hw address (LAP and UAP) fields
+        //are unique to a single device type. Incidentally, kernel provides
+        //bluetooth hardware address as devices uniqueId.
+        //
+        //Hacking first 4 bytes of bt hw address to serve as device id.
+        unsigned int hwaddr[4] = {0,0,0,0};
+        int res = sscanf(deviceIdentifier.uniqueId.string(),
+                        "%02x:%02x:%02x:%02x",
+                        &hwaddr[0], &hwaddr[1], &hwaddr[2], &hwaddr[3]);
+        if(res == 4) {
+            String8 bluetoothPath(getInputDeviceConfigurationFilePathByName(
+                    String8::format("Bluetooth_%02x_%02x_%02x_%02x",
+                            hwaddr[0], hwaddr[1], hwaddr[2], hwaddr[3]),
+                    type));
+            if (!bluetoothPath.isEmpty()) {
+                return bluetoothPath;
+            }
         }
     }
 
