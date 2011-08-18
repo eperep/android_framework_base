@@ -219,13 +219,36 @@ sp<ABuffer> MakeAACCodecSpecificData(const char *params) {
     AString val;
     CHECK(GetAttribute(params, "config", &val));
 
+    uint8_t esdsSize = 0;
+    uint32_t esdsData = 0;
     sp<ABuffer> config = decodeHex(val);
     CHECK(config != NULL);
     CHECK_GE(config->size(), 4u);
 
-    const uint8_t *data = config->data();
-    uint32_t x = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
-    x = (x >> 1) & 0xffff;
+    ABitReader*  bits = new ABitReader(config->data(), config->size());
+
+    unsigned skipData = bits->getBits(15);
+
+    uint8_t audioObjectType = bits->getBits(5);
+    uint8_t samplingFreqIndex = bits->getBits(4);
+    uint8_t channelConfiguration = bits->getBits(4);
+
+    if (audioObjectType == 5) {
+        uint8_t  extensionSamplingFreqIndex = bits->getBits(4);
+        uint8_t  audioObjectTypeExtension = bits->getBits(5);
+        // 4 bytes esds
+        esdsSize = 4;
+        esdsData = audioObjectType << 27 | samplingFreqIndex << 23 | channelConfiguration << 19
+                    | extensionSamplingFreqIndex << 15 | audioObjectTypeExtension << 10;
+    }
+    else
+    {
+        // 2 bytes esds
+        esdsSize = 2;
+        esdsData = audioObjectType << 11 | samplingFreqIndex << 7 | channelConfiguration << 3;
+    }
+
+    LOGV("esdsData %x", esdsData);
 
     static const uint8_t kStaticESDS[] = {
         0x03, 22,
@@ -238,14 +261,22 @@ sp<ABuffer> MakeAACCodecSpecificData(const char *params) {
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,
 
-        0x05, 2,
+        0x05,
         // AudioSpecificInfo follows
     };
 
-    sp<ABuffer> csd = new ABuffer(sizeof(kStaticESDS) + 2);
+    uint8_t offset = sizeof(kStaticESDS) + 1; // 1 byte for esds size
+    sp<ABuffer> csd = new ABuffer(offset+ esdsSize);
+
     memcpy(csd->data(), kStaticESDS, sizeof(kStaticESDS));
-    csd->data()[sizeof(kStaticESDS)] = (x >> 8) & 0xff;
-    csd->data()[sizeof(kStaticESDS) + 1] = x & 0xff;
+    csd->data()[sizeof(kStaticESDS)] = esdsSize;
+
+    // extract each esdsbyte from esdsData and copy to csd->data()
+    for(uint8_t i = 0; i < esdsSize; i++)
+    {
+        uint8_t esdsByte = (esdsData >>(((esdsSize - i) * 8) - 8)) & 0xff;
+        csd->data()[offset + i] = esdsByte;
+    }
 
     // hexdump(csd->data(), csd->size());
 
