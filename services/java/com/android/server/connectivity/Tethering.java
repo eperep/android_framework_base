@@ -45,6 +45,7 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.provider.Settings;
 import android.util.Log;
+import android.os.SystemProperties;
 
 import com.android.internal.telephony.Phone;
 import com.android.internal.util.IState;
@@ -1293,6 +1294,13 @@ public class Tethering extends INetworkManagementEventObserver.Stub {
             protected void notifyTetheredOfNewUpstreamIface(String ifaceName) {
                 if (VDBG) Log.d(TAG, "notifying tethered with iface =" + ifaceName);
                 mUpstreamIfaceName = ifaceName;
+                if (VDBG) Log.d(TAG, "Upstream Infterface dns1= " + SystemProperties.get("dhcp."
+                    +mUpstreamIfaceName+".dns1")+ "dns2= "+ SystemProperties.get("dhcp."
+                    +mUpstreamIfaceName+".dns2"));
+                if (!SystemProperties.get("dhcp."+mUpstreamIfaceName+".dns1").equals(""))
+                    mDnsServers[0] = SystemProperties.get("dhcp."+mUpstreamIfaceName+".dns1");
+                if (!SystemProperties.get("dhcp."+mUpstreamIfaceName+".dns2").equals(""))
+                    mDnsServers[1] = SystemProperties.get("dhcp."+mUpstreamIfaceName+".dns2");
                 for (Object o : mNotifyList) {
                     TetherInterfaceSM sm = (TetherInterfaceSM)o;
                     sm.sendMessage(TetherInterfaceSM.CMD_TETHER_CONNECTION_CHANGED,
