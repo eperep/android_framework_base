@@ -468,7 +468,9 @@ size_t AudioPlayer::fillBuffer(void *data, size_t size) {
         mObserver->postAudioSeekComplete();
     }
 
-    mClockRunning = true;
+    if (!mReachedEOS) {
+        mClockRunning = true;
+    }
     mPauseTimeAdjust = 0;
     ResetStartTime();
 
