@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+
 #define LOG_TAG "MPEG4Extractor"
 #include <utils/Log.h>
 
@@ -2411,6 +2412,32 @@ static bool BetterSniffMPEG4(
     return true;
 }
 
+
+//mov files with moov atom and mdat atom also valid ones.
+static bool MovSniffMPEG4(
+        const sp<DataSource> &source, String8 *mimeType, float *confidence) {
+    uint8_t header[12];
+    if (source->readAt(0, header, 12) != 12
+        || memcmp("moov", &header[4], 4)) {
+        return false;
+    }
+
+    size_t atomSize = U32_AT(&header[0]);
+    if (atomSize < 16 ) {
+        return false;
+    }
+
+    if (source->readAt(atomSize, header, 12) != 12
+        || memcmp("mdat", &header[4], 4)) {
+        return false;
+    }
+
+    *mimeType = MEDIA_MIMETYPE_CONTAINER_MPEG4;
+    *confidence = 0.4f;
+
+    return true;
+}
+
 bool SniffMPEG4(
         const sp<DataSource> &source, String8 *mimeType, float *confidence,
         sp<AMessage> *) {
@@ -2420,6 +2447,12 @@ bool SniffMPEG4(
 
     if (LegacySniffMPEG4(source, mimeType, confidence)) {
         LOGW("Identified supported mpeg4 through LegacySniffMPEG4.");
+        return true;
+    }
+
+    //one more try!
+    //moov and mdat
+    if (MovSniffMPEG4(source, mimeType, confidence)) {
         return true;
     }
 
