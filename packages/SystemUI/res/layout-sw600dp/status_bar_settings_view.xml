@@ -13,10 +13,17 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Copyright (c) 2011, NVIDIA CORPORATION.  All rights reserved
+ *
 -->
 
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
 <com.android.systemui.statusbar.tablet.SettingsView
-        xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:systemui="http://schemas.android.com/apk/res/com.android.systemui"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -109,6 +116,25 @@
     </LinearLayout>
     <View style="@style/StatusBarPanelSettingsPanelSeparator" />
 
+    <!-- Stereo Separation Slider -->
+    <LinearLayout
+            android:id="@+id/sepSliderId"
+            style="@style/StatusBarPanelSettingsRow" >
+        <ImageView
+                android:id="@+id/stereosep_icon"
+                style="@style/StatusBarPanelSettingsIcon"
+                android:src="@drawable/ic_sysbar_stereosep"
+                />
+        <com.android.systemui.statusbar.policy.StereoSepElement
+                android:id="@+id/stereosep_element"
+                android:layout_width="0dp"
+                android:layout_height="fill_parent"
+                android:layout_weight="1"
+                android:layout_marginRight="2dp"
+                />
+    </LinearLayout>
+    <View style="@style/StatusBarPanelSettingsPanelSeparator" />
+
     <!-- Notifications / Do not disturb -->
     <LinearLayout
             android:id="@+id/do_not_disturb"
@@ -153,3 +179,4 @@
 
 </com.android.systemui.statusbar.tablet.SettingsView>
 
+</ScrollView>

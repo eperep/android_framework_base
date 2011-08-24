@@ -108,6 +108,9 @@
     <!-- Abbreviation / label for automatic brightness mode button. Should be all caps. [CHAR LIMIT=6] -->
     <string name="status_bar_settings_auto_brightness_label">AUTO</string>
 
+    <!-- Abbreviation / label for automatic brightness mode button. [CHAR LIMIT=NONE] -->
+    <string name="status_bar_settings_stereo_separation_label">3D</string>
+
     <!-- Label in system panel saying the device will show notifications [CHAR LIMIT=30] -->
     <string name="status_bar_settings_notifications">Notifications</string>
 

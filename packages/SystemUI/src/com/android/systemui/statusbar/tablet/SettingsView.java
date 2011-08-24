@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.provider.Settings;
 import android.util.AttributeSet;
 import android.util.Slog;
+import android.util.Log;
 import android.widget.LinearLayout;
 import android.view.View;
 import android.widget.CompoundButton;
@@ -35,6 +36,7 @@ import com.android.systemui.statusbar.policy.BrightnessController;
 import com.android.systemui.statusbar.policy.DoNotDisturbController;
 import com.android.systemui.statusbar.policy.ToggleSlider;
 import com.android.systemui.statusbar.policy.VolumeController;
+import com.android.systemui.statusbar.policy.StereoSepElement;
 
 public class SettingsView extends LinearLayout implements View.OnClickListener {
     static final String TAG = "SettingsView";
@@ -68,6 +70,23 @@ public class SettingsView extends LinearLayout implements View.OnClickListener {
         mDoNotDisturb = new DoNotDisturbController(context,
                 (CompoundButton)findViewById(R.id.do_not_disturb_checkbox));
         findViewById(R.id.settings).setOnClickListener(this);
+
+        // Show the Stereo separation slider only if HDMI is connected, Stereo is enabled,
+        // and a Stereo App is currently running
+        StereoSepElement sepElement = (StereoSepElement)findViewById(R.id.stereosep_element);
+        View sepSlider = findViewById(R.id.sepSliderId);
+        if ((sepElement != null) && (sepSlider != null)) {
+            Log.d(TAG, "onFinishInflate(): check if slider should be shown");
+            if (sepElement.shouldBeVisibile()) {
+                Log.d(TAG, "onFinishInflate(): set visibility on entire slider element to VISIBLE");
+                sepSlider.setVisibility(View.VISIBLE);
+                sepElement.setSliderIsVisible(true);
+            } else {
+                Log.d(TAG, "onFinishInflate(): set visibility on entire slider element to GONE");
+                sepSlider.setVisibility(View.GONE);
+                sepElement.setSliderIsVisible(false);
+            }
+        }
     }
 
     @Override
