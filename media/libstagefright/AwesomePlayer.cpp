@@ -333,6 +333,19 @@ void AwesomePlayer::cancelPlayerEvents(bool keepBufferingGoing) {
     mQueue.cancelEvent(mStreamDoneEvent->eventID());
     mStreamDoneEventPending = false;
     mQueue.cancelEvent(mCheckAudioStatusEvent->eventID());
+    if(mAudioPlayer)
+    {
+        if (mWatchForAudioSeekComplete && !mAudioPlayer->isSeeking() && mAudioStatusEventPending) {
+            mWatchForAudioSeekComplete = false;
+
+            if (!mSeekNotificationSent) {
+                notifyListener_l(MEDIA_SEEK_COMPLETE);
+                mSeekNotificationSent = true;
+            }
+
+            mSeeking = NO_SEEK;
+        }
+    }
     mAudioStatusEventPending = false;
     mQueue.cancelEvent(mVideoLagEvent->eventID());
     mVideoLagEventPending = false;
