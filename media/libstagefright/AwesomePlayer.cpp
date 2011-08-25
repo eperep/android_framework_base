@@ -2357,7 +2357,7 @@ status_t AwesomePlayer::finishSetDataSource_l() {
         sp<MediaExtractor> extractor = mRTSPController.get();
         return setDataSource_l(extractor);
     } else {
-        dataSource = DataSource::CreateFromURI(mUri.string(), &mUriHeaders, (!noAvsync || noAudio));
+        dataSource = DataSource::CreateFromURI(mUri.string(), &mUriHeaders, ((!noAvsync || noAudio) && !noPreCache));
     }
 
     if (dataSource == NULL) {
