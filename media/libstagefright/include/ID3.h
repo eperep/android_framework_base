@@ -77,8 +77,8 @@ private:
     size_t mFirstFrameOffset;
     Version mVersion;
 
-    bool parseV1(const sp<DataSource> &source);
-    bool parseV2(const sp<DataSource> &source);
+    bool parseV1(const sp<DataSource> &source,int32_t *file_offset,uint8_t *version_major);
+    bool parseV2(const sp<DataSource> &source,int32_t *file_offset,uint8_t *version_major);
     void removeUnsynchronization();
     bool removeUnsynchronizationV2_4(bool iTunesHack);
 

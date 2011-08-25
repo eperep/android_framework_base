@@ -36,11 +36,27 @@ ID3::ID3(const sp<DataSource> &source)
       mSize(0),
       mFirstFrameOffset(0),
       mVersion(ID3_UNKNOWN) {
-    mIsValid = parseV2(source);
+    uint8_t temp_version_major = '\0';
+    uint8_t version_major = '\0';
+    int32_t file_offset = 0;
+    int32_t temp_file_offset = 0;
+    int32_t temp_backup = 0;
+    do
+    {
+        temp_backup = temp_file_offset;
+        mIsValid = parseV2(source,&temp_file_offset,&temp_version_major);
 
-    if (!mIsValid) {
-        mIsValid = parseV1(source);
-    }
+        if (!mIsValid)
+            mIsValid = parseV1(source,&temp_file_offset,&temp_version_major);
+        if(temp_version_major > version_major)
+        {
+            version_major = temp_version_major;
+            file_offset = temp_backup;
+        }
+    }while(mIsValid);
+    mIsValid = parseV2(source,&file_offset,&version_major);
+    if (!mIsValid)
+        mIsValid = parseV1(source,&file_offset,&version_major);
 }
 
 ID3::~ID3() {
@@ -72,7 +88,7 @@ bool ID3::ParseSyncsafeInteger(const uint8_t encoded[4], size_t *x) {
     return true;
 }
 
-bool ID3::parseV2(const sp<DataSource> &source) {
+bool ID3::parseV2(const sp<DataSource> &source,int32_t *file_offset,uint8_t *version_major) {
 struct id3_header {
     char id[3];
     uint8_t version_major;
@@ -83,7 +99,7 @@ struct id3_header {
 
     id3_header header;
     if (source->readAt(
-                0, &header, sizeof(header)) != (ssize_t)sizeof(header)) {
+                *file_offset, &header, sizeof(header)) != (ssize_t)sizeof(header)) {
         return false;
     }
 
@@ -94,7 +110,7 @@ struct id3_header {
     if (header.version_major == 0xff || header.version_minor == 0xff) {
         return false;
     }
-
+    *version_major = header.version_major;
     if (header.version_major == 2) {
         if (header.flags & 0x3f) {
             // We only support the 2 high bits, if any of the lower bits are
@@ -132,7 +148,8 @@ struct id3_header {
         LOGE("skipping huge ID3 metadata of size %d", size);
         return false;
     }
-
+    if(mData != NULL)
+        free(mData);
     mData = (uint8_t *)malloc(size);
 
     if (mData == NULL) {
@@ -141,12 +158,13 @@ struct id3_header {
 
     mSize = size;
 
-    if (source->readAt(sizeof(header), mData, mSize) != (ssize_t)mSize) {
+    if (source->readAt(sizeof(header)+ *file_offset, mData, mSize) != (ssize_t)mSize) {
         free(mData);
         mData = NULL;
 
         return false;
     }
+    *file_offset = *file_offset + size + sizeof(header);
 
     if (header.version_major == 4) {
         void *copy = malloc(size);
@@ -168,6 +186,7 @@ struct id3_header {
         copy = NULL;
 
         if (!success) {
+
             free(mData);
             mData = NULL;
 
@@ -786,22 +805,25 @@ ID3::getAlbumArt(size_t *length, String8 *mime) const {
     return NULL;
 }
 
-bool ID3::parseV1(const sp<DataSource> &source) {
+bool ID3::parseV1(const sp<DataSource> &source,int32_t *file_offset,uint8_t *version_major) {
     const size_t V1_TAG_SIZE = 128;
-
+    version_major = (uint8_t *)1;
     off64_t size;
     if (source->getSize(&size) != OK || size < (off64_t)V1_TAG_SIZE) {
         return false;
     }
 
+    if(mData != NULL)
+        free(mData);
     mData = (uint8_t *)malloc(V1_TAG_SIZE);
-    if (source->readAt(size - V1_TAG_SIZE, mData, V1_TAG_SIZE)
+    if (source->readAt(*file_offset + size - V1_TAG_SIZE, mData, V1_TAG_SIZE)
             != (ssize_t)V1_TAG_SIZE) {
         free(mData);
         mData = NULL;
 
         return false;
     }
+    *file_offset = *file_offset + size - V1_TAG_SIZE;
 
     if (memcmp("TAG", mData, 3)) {
         free(mData);
