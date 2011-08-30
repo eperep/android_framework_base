@@ -47,6 +47,7 @@ private:
     bool mIsGeneric;
     AString mParams;
 
+    unsigned mFrameLength;
     unsigned mSizeLength;
     unsigned mIndexLength;
     unsigned mIndexDeltaLength;

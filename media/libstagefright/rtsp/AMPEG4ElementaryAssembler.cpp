@@ -103,6 +103,7 @@ AMPEG4ElementaryAssembler::AMPEG4ElementaryAssembler(
       mAccessUnitRTPTime(0),
       mNextExpectedSeqNoValid(false),
       mNextExpectedSeqNo(0),
+      mFrameLength(0),
       mAccessUnitDamaged(false) {
     mIsGeneric = !strncasecmp(desc.c_str(),"mpeg4-generic/", 14);
 
@@ -217,6 +218,7 @@ ARTPAssembler::AssemblyStatus AMPEG4ElementaryAssembler::addPacket(
     mAccessUnitRTPTime = rtpTime;
 
     if (!mIsGeneric) {
+        mFrameLength += buffer->size();
         mPackets.push_back(buffer);
     } else {
         // hexdump(buffer->data(), buffer->size());
@@ -319,6 +321,7 @@ ARTPAssembler::AssemblyStatus AMPEG4ElementaryAssembler::addPacket(
             memcpy(accessUnit->data(), buffer->data() + offset, header.mSize);
 
             offset += header.mSize;
+            mFrameLength += header.mSize;
 
             CopyTimes(accessUnit, buffer);
             mPackets.push_back(accessUnit);
@@ -338,16 +341,14 @@ void AMPEG4ElementaryAssembler::submitAccessUnit() {
 
     LOGV("Access unit complete (%d nal units)", mPackets.size());
 
-    size_t totalSize = 0;
+    size_t shiftPos = 0;
+
+    sp<ABuffer> accessUnit = new ABuffer(mFrameLength);
     for (List<sp<ABuffer> >::iterator it = mPackets.begin();
-         it != mPackets.end(); ++it) {
-
+        it != mPackets.end(); ++it) {
         sp<ABuffer> nal = *it;
-        sp<ABuffer> accessUnit = new ABuffer(nal->size());
-        memcpy(accessUnit->data(), nal->data(), nal->size());
-
-        CopyTimes(accessUnit, *mPackets.begin());
-
+        memcpy(accessUnit->data()+shiftPos, nal->data(), nal->size());
+        shiftPos +=  nal->size();
 #if 0
     printf(mAccessUnitDamaged ? "X" : ".");
     fflush(stdout);
@@ -355,11 +356,13 @@ void AMPEG4ElementaryAssembler::submitAccessUnit() {
 
         if (mAccessUnitDamaged)
             accessUnit->meta()->setInt32("damaged", true);
-
-        sp<AMessage> msg = mNotifyMsg->dup();
-        msg->setObject("access-unit", accessUnit);
-        msg->post();
     }
+
+    CopyTimes(accessUnit, *mPackets.begin());
+    sp<AMessage> msg = mNotifyMsg->dup();
+    msg->setObject("access-unit", accessUnit);
+    msg->post();
+    mFrameLength = 0;
 
     mPackets.clear();
     mAccessUnitDamaged = false;
