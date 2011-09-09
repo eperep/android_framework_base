@@ -1374,17 +1374,25 @@ status_t MediaPlayerService::AudioOutput::open(
 
     switch (channelCount) {
         case 8:
-            channels |= AUDIO_CHANNEL_OUT_7POINT1;
-            // Direct output enabled for more than 2 channels
-            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+            channels = AUDIO_CHANNEL_OUT_7POINT1;
+            break;
+        case 7:
+            channels = AUDIO_CHANNEL_OUT_7POINT1 &
+                        (~AUDIO_CHANNEL_OUT_LOW_FREQUENCY);
             break;
         case 6:
             channels |= AUDIO_CHANNEL_OUT_5POINT1;
-            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+            break;
+        case 5:
+            channels = AUDIO_CHANNEL_OUT_5POINT1 &
+                        (~AUDIO_CHANNEL_OUT_LOW_FREQUENCY);
             break;
         case 4:
             channels |= AUDIO_CHANNEL_OUT_QUAD;
-            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+            break;
+        case 3:
+            channels = AUDIO_CHANNEL_OUT_STEREO |
+                        AUDIO_CHANNEL_OUT_FRONT_CENTER;
             break;
         default:
         case 2:
@@ -1393,6 +1401,11 @@ status_t MediaPlayerService::AudioOutput::open(
         case 1:
             channels |= AUDIO_CHANNEL_OUT_MONO;
             break;
+    }
+    // Direct output enabled for more than 2 channels
+    if (channelCount > 2) {
+        outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+        frameCount = (afFrameCount*bufferCount);
     }
 
     LOGV("AudioOutput::open :: outputflag = %d \n",outputflag);
