@@ -45,6 +45,7 @@
 #include <OMX_Component.h>
 
 #include "include/avc_utils.h"
+#include <cutils/properties.h>
 
 namespace android {
 
@@ -1495,7 +1496,8 @@ OMXCodec::OMXCodec(
       mLeftOverBuffer(NULL),
       mPaused(false),
       mNativeWindow(!strncmp(componentName, "OMX.google.", 11)
-                        ? NULL : nativeWindow) {
+                        ? NULL : nativeWindow),
+      mAudioMaxOutChannel(2) {
     mPortStatus[kPortIndexInput] = ENABLED;
     mPortStatus[kPortIndexOutput] = ENABLED;
 
@@ -2796,6 +2798,43 @@ void OMXCodec::onStateChange(OMX_STATETYPE newState) {
                     }
                 }
 
+                if (!strncmp(mComponentName, "OMX.Nvidia", 10))
+                {
+                    uint8_t AudioMaxOutChannel;
+                    char value[PROPERTY_VALUE_MAX];
+                    bool isAudioDec = !strncasecmp(mMIME, "audio/", 6) && !mIsEncoder;
+
+                    property_get("media.tegra.max.out.channels", value, "0");
+                    AudioMaxOutChannel = atoi(value);
+                    if (isAudioDec && (AudioMaxOutChannel != 0) && (mAudioMaxOutChannel != AudioMaxOutChannel))
+                    {
+                        OMX_INDEXTYPE index;
+
+                        CODEC_LOGI("init: updating maxOutputchannel from %d to %d \n", mAudioMaxOutChannel, AudioMaxOutChannel);
+                        err = mOMX->getExtensionIndex(mNode, "OMX.Nvidia.index.config.maxoutchannels", &index);
+                        if(err == OK)
+                        {
+                            OMX_PARAM_U32TYPE maxChannel;
+                            memset(&maxChannel, 0, sizeof(maxChannel));
+                            InitOMXParams(&maxChannel);
+                            maxChannel.nPortIndex = kPortIndexOutput;
+                            maxChannel.nU32 = AudioMaxOutChannel;
+
+                            // If setConfig fails, then we are out of resources so set ERROR state so that Init will fail.
+                            err = mOMX->setConfig(mNode, index, &maxChannel, sizeof(maxChannel));
+                            if(err != OK)
+                            {
+                                CODEC_LOGE("init: setparam maxchannel failed \n");
+                            }
+                            mAudioMaxOutChannel = AudioMaxOutChannel;
+                        }
+                        else
+                        {
+                            CODEC_LOGE("OMX.Nvidia.index.config.maxoutchannels getindex failed \n");
+                        }
+                    }
+                }
+
                 err = mOMX->sendCommand(
                         mNode, OMX_CommandStateSet, OMX_StateExecuting);
 
@@ -3971,6 +4010,39 @@ status_t OMXCodec::read(
     ReadOptions::SeekMode seekMode;
     if (options && options->getSeekTo(&seekTimeUs, &seekMode)) {
         seeking = true;
+    }
+
+    uint8_t AudioMaxOutChannel;
+    char value[PROPERTY_VALUE_MAX];
+    bool isAudioDec = !strncasecmp(mMIME, "audio/", 6) && !mIsEncoder;
+    property_get("media.tegra.max.out.channels", value, "0");
+    AudioMaxOutChannel = atoi(value);
+    if (isAudioDec && (AudioMaxOutChannel != 0) && (mAudioMaxOutChannel != AudioMaxOutChannel))
+    {
+        OMX_INDEXTYPE index;
+
+        CODEC_LOGI("updating maxOutputchannel from %d to %d \n", mAudioMaxOutChannel, AudioMaxOutChannel);
+        status_t err = mOMX->getExtensionIndex(mNode, "OMX.Nvidia.index.config.maxoutchannels", &index);
+        if(err == OK)
+        {
+            OMX_PARAM_U32TYPE maxChannel;
+            memset(&maxChannel, 0, sizeof(maxChannel));
+            InitOMXParams(&maxChannel);
+            maxChannel.nPortIndex = kPortIndexOutput;
+            maxChannel.nU32 = AudioMaxOutChannel;
+
+            // If setConfig fails, then we are out of resources so set ERROR state so that Init will fail.
+            err = mOMX->setConfig(mNode, index, &maxChannel, sizeof(maxChannel));
+            if(err != OK)
+            {
+                CODEC_LOGE("setparam maxchannel failed \n");
+            }
+            mAudioMaxOutChannel = AudioMaxOutChannel;
+        }
+        else
+        {
+            CODEC_LOGE("OMX.Nvidia.index.config.maxoutchannels getindex failed \n");
+        }
     }
 
     if (mInitialBufferSubmit) {

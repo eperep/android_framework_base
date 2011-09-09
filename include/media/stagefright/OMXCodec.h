@@ -201,6 +201,7 @@ private:
     uint8_t mOMXProfile;
 
     bool mPaused;
+    uint8_t mAudioMaxOutChannel;
 
     sp<ANativeWindow> mNativeWindow;
 
