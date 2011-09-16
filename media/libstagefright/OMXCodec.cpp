@@ -1577,6 +1577,7 @@ void OMXCodec::setComponentRole() {
 
 OMXCodec::~OMXCodec() {
     mSource.clear();
+    property_set("media.tegra.out.channel.map", "");
 
     CHECK(mState == LOADED || mState == ERROR || mState == LOADED_TO_IDLE);
 
@@ -3996,6 +3997,7 @@ sp<MetaData> OMXCodec::getFormat() {
 status_t OMXCodec::read(
         MediaBuffer **buffer, const ReadOptions *options) {
     status_t err = OK;
+    bool bFirstRead = mInitialBufferSubmit;
     *buffer = NULL;
 
     Mutex::Autolock autoLock(mLock);
@@ -4138,6 +4140,18 @@ status_t OMXCodec::read(
 
     info->mMediaBuffer->add_ref();
     *buffer = info->mMediaBuffer;
+
+    if (bFirstRead)
+    {
+        OMX_AUDIO_PARAM_PCMMODETYPE pcmParams;
+        InitOMXParams(&pcmParams);
+        pcmParams.nPortIndex = kPortIndexOutput;
+
+        status_t err = mOMX->getParameter(
+                mNode, OMX_IndexParamAudioPcm, &pcmParams, sizeof(pcmParams));
+        if (err == OK)
+            UpdateChannelMapInfo(&pcmParams);
+    }
 
     return OK;
 }
@@ -4515,6 +4529,31 @@ void OMXCodec::dumpPortStatus(OMX_U32 portIndex) {
     printf("}\n");
 }
 
+void OMXCodec::UpdateChannelMapInfo(void *param) {
+    OMX_AUDIO_PARAM_PCMMODETYPE *pcmParams = (OMX_AUDIO_PARAM_PCMMODETYPE *)param;
+
+    if (pcmParams->nChannels > 2)
+    {
+        int i = 0;
+        char chToStr[10][4] = {"00", "LF", "RF", "CF", "LS", "RS", "LFE", "CS", "LR", "RR"};
+        char channelMap[256];
+
+        memset(channelMap, 0, sizeof(channelMap));
+        for (;(i < OMX_AUDIO_MAXCHANNELS) && pcmParams->eChannelMapping[i] ;i++)
+        {
+            if (i)
+                strcat(channelMap, " ");
+            strcat(channelMap, chToStr[pcmParams->eChannelMapping[i]]);
+        }
+        if (i > 2)
+        {
+            // do set prop.
+            property_set("media.tegra.out.channel.map", channelMap);
+            CODEC_LOGI("setting channel map: %s \n", channelMap);
+        }
+    }
+}
+
 status_t OMXCodec::initNativeWindow() {
     // Enable use of a GraphicBuffer as the output for this node.  This must
     // happen before getting the IndexParamPortDefinition parameter because it
@@ -4598,6 +4637,11 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                 int32_t numChannels, sampleRate;
                 inputFormat->findInt32(kKeyChannelCount, &numChannels);
                 inputFormat->findInt32(kKeySampleRate, &sampleRate);
+
+                if (!mInitialBufferSubmit)
+                {
+                    UpdateChannelMapInfo(&params);
+                }
 
                 if ((OMX_U32)numChannels != params.nChannels) {
                     LOGV("Codec outputs a different number of channels than "

@@ -340,6 +340,7 @@ private:
 
     OMXCodec(const OMXCodec &);
     OMXCodec &operator=(const OMXCodec &);
+    void UpdateChannelMapInfo(void *pcmParams);
 };
 
 struct CodecCapabilities {
