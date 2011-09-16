@@ -44,8 +44,7 @@ public:
 
     static sp<DataSource> CreateFromURI(
             const char *uri,
-            const KeyedVector<String8, String8> *headers = NULL,
-            bool isCached = false);
+            const KeyedVector<String8, String8> *headers = NULL);
 
     DataSource() {}
 
@@ -80,6 +79,10 @@ public:
 
     static void RegisterSniffer(SnifferFunc func);
     static void RegisterDefaultSniffers();
+    static sp<DataSource> CreateCachedSourceFromURI(
+            const char *uri,
+            const KeyedVector<String8, String8> *headers = NULL,
+            bool isCached = false);
 
     // for DRM
     virtual sp<DecryptHandle> DrmInitialization() {

@@ -122,7 +122,13 @@ void DataSource::RegisterDefaultSniffers() {
 }
 
 // static
+
+// static
 sp<DataSource> DataSource::CreateFromURI(
+        const char *uri, const KeyedVector<String8, String8> *headers) {
+    return CreateCachedSourceFromURI(uri, headers, false);
+}
+sp<DataSource> DataSource::CreateCachedSourceFromURI(
         const char *uri, const KeyedVector<String8, String8> *headers, bool isCached) {
     sp<DataSource> source;
     if (!strncasecmp("file://", uri, 7)) {
