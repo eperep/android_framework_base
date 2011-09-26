@@ -179,12 +179,46 @@ status_t AudioPlayer::start(bool sourceAlreadyStarted) {
 
         mAudioSink->start();
     } else {
+        int channels = 0;
+        int outputflag = 0;
+
+        switch (numChannels) {
+            case 8:
+                channels = AUDIO_CHANNEL_OUT_7POINT1;
+                break;
+            case 7:
+                channels = AUDIO_CHANNEL_OUT_7POINT1 &
+                            (~AUDIO_CHANNEL_OUT_LOW_FREQUENCY);
+            break;
+            case 6:
+                channels |= AUDIO_CHANNEL_OUT_5POINT1;
+                break;
+            case 5:
+                channels = AUDIO_CHANNEL_OUT_5POINT1 &
+                            (~AUDIO_CHANNEL_OUT_LOW_FREQUENCY);
+                break;
+            case 4:
+                channels |= AUDIO_CHANNEL_OUT_QUAD;
+                break;
+            case 3:
+                channels = AUDIO_CHANNEL_OUT_STEREO |
+                            AUDIO_CHANNEL_OUT_FRONT_CENTER;
+                break;
+            default:
+            case 2:
+                channels |= AUDIO_CHANNEL_OUT_STEREO;
+                break;
+            case 1:
+                channels |= AUDIO_CHANNEL_OUT_MONO;
+                break;
+        }
+        // Direct output enabled for more than 2 channels
+        if (numChannels > 2)
+            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+
         mAudioTrack = new AudioTrack(
                 AUDIO_STREAM_MUSIC, mSampleRate, AUDIO_FORMAT_PCM_16_BIT,
-                (numChannels == 2)
-                    ? AUDIO_CHANNEL_OUT_STEREO
-                    : AUDIO_CHANNEL_OUT_MONO,
-                0, 0, &AudioCallback, this, 0);
+                channels, 0, outputflag, &AudioCallback, this, 0);
 
         if ((err = mAudioTrack->initCheck()) != OK) {
             delete mAudioTrack;
@@ -409,12 +443,46 @@ void AudioPlayer::onPortSettingsChangedEvent() {
 
         mAudioSink->start();
     } else {
+        int channels = 0;
+        int outputflag = 0;
+
+        switch (numChannels) {
+            case 8:
+                channels = AUDIO_CHANNEL_OUT_7POINT1;
+                break;
+            case 7:
+                channels = AUDIO_CHANNEL_OUT_7POINT1 &
+                            (~AUDIO_CHANNEL_OUT_LOW_FREQUENCY);
+            break;
+            case 6:
+                channels |= AUDIO_CHANNEL_OUT_5POINT1;
+                break;
+            case 5:
+                channels = AUDIO_CHANNEL_OUT_5POINT1 &
+                            (~AUDIO_CHANNEL_OUT_LOW_FREQUENCY);
+                break;
+            case 4:
+                channels |= AUDIO_CHANNEL_OUT_QUAD;
+                break;
+            case 3:
+                channels = AUDIO_CHANNEL_OUT_STEREO |
+                            AUDIO_CHANNEL_OUT_FRONT_CENTER;
+                break;
+            default:
+            case 2:
+                channels |= AUDIO_CHANNEL_OUT_STEREO;
+                break;
+            case 1:
+                channels |= AUDIO_CHANNEL_OUT_MONO;
+                break;
+        }
+        // Direct output enabled for more than 2 channels
+        if (numChannels > 2)
+            outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
+
         mAudioTrack = new AudioTrack(
                 AUDIO_STREAM_MUSIC, mSampleRate, AUDIO_FORMAT_PCM_16_BIT,
-                (numChannels == 2)
-                    ? AUDIO_CHANNEL_OUT_STEREO
-                    : AUDIO_CHANNEL_OUT_MONO,
-                0, 0, &AudioCallback, this, 0);
+                channels, 0, outputflag, &AudioCallback, this, 0);
 
         if ((err = mAudioTrack->initCheck()) != OK) {
 
