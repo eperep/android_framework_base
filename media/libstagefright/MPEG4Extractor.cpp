@@ -687,7 +687,8 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
     }
 
     if(chunk_type == 0x00000000) {
-        mLastTrack->TerminatorAtomReached = true;
+        if(mLastTrack)
+            mLastTrack->TerminatorAtomReached = true;
         *offset += chunk_size;
            return OK;
     }
