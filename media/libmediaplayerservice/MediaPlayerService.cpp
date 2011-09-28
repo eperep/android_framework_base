@@ -1405,7 +1405,6 @@ status_t MediaPlayerService::AudioOutput::open(
     // Direct output enabled for more than 2 channels
     if (channelCount > 2) {
         outputflag |= AUDIO_POLICY_OUTPUT_FLAG_DIRECT;
-        frameCount = (afFrameCount*bufferCount);
     }
 
     LOGV("AudioOutput::open :: outputflag = %d \n",outputflag);
