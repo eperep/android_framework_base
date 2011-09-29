@@ -126,7 +126,8 @@ sp<DataSource> DataSource::CreateFromURI(
         const char *uri, const KeyedVector<String8, String8> *headers) {
     sp<DataSource> source;
     if (!strncasecmp("file://", uri, 7)) {
-        source = new FileSource(uri + 7);
+        sp<DataSource> fileSource = new FileSource(uri + 7);
+        source = new NuCachedSource2(fileSource);
     } else if (!strncasecmp("http://", uri, 7)
             || !strncasecmp("https://", uri, 8)) {
         sp<HTTPBase> httpSource = HTTPBase::Create();
@@ -136,7 +137,8 @@ sp<DataSource> DataSource::CreateFromURI(
         source = new NuCachedSource2(httpSource);
     } else {
         // Assume it's a filename.
-        source = new FileSource(uri);
+        sp<DataSource> fileSource = new FileSource(uri);
+        source = new NuCachedSource2(fileSource);
     }
 
     if (source == NULL || source->initCheck() != OK) {

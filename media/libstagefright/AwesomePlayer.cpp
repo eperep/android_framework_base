@@ -305,8 +305,8 @@ status_t AwesomePlayer::setDataSource(
     Mutex::Autolock autoLock(mLock);
 
     reset_l();
-
-    sp<DataSource> dataSource = new FileSource(fd, offset, length);
+    sp<DataSource> fileSource = new FileSource(fd, offset, length);
+    sp<DataSource> dataSource = new NuCachedSource2(fileSource);
 
     status_t err = dataSource->initCheck();
 
