@@ -44,7 +44,8 @@ public:
 
     static sp<DataSource> CreateFromURI(
             const char *uri,
-            const KeyedVector<String8, String8> *headers = NULL);
+            const KeyedVector<String8, String8> *headers = NULL,
+            bool isCached = false);
 
     DataSource() {}
 

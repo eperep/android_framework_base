@@ -123,11 +123,18 @@ void DataSource::RegisterDefaultSniffers() {
 
 // static
 sp<DataSource> DataSource::CreateFromURI(
-        const char *uri, const KeyedVector<String8, String8> *headers) {
+        const char *uri, const KeyedVector<String8, String8> *headers, bool isCached) {
     sp<DataSource> source;
     if (!strncasecmp("file://", uri, 7)) {
-        sp<DataSource> fileSource = new FileSource(uri + 7);
-        source = new NuCachedSource2(fileSource);
+        if(isCached)
+        {
+           sp<DataSource> fileSource = new FileSource(uri + 7);
+           source = new NuCachedSource2(fileSource);
+        }
+        else
+        {
+           source = new FileSource(uri + 7);
+        }
     } else if (!strncasecmp("http://", uri, 7)
             || !strncasecmp("https://", uri, 8)) {
         sp<HTTPBase> httpSource = HTTPBase::Create();
@@ -137,8 +144,15 @@ sp<DataSource> DataSource::CreateFromURI(
         source = new NuCachedSource2(httpSource);
     } else {
         // Assume it's a filename.
-        sp<DataSource> fileSource = new FileSource(uri);
-        source = new NuCachedSource2(fileSource);
+        if(isCached)
+        {
+           sp<DataSource> fileSource = new FileSource(uri);
+           source = new NuCachedSource2(fileSource);
+        }
+        else
+        {
+            source = new FileSource(uri);
+        }
     }
 
     if (source == NULL || source->initCheck() != OK) {
