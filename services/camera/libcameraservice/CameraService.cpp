@@ -93,7 +93,7 @@ void CameraService::onFirstRef()
                     mNumberOfCameras, MAX_CAMERAS);
             mNumberOfCameras = MAX_CAMERAS;
         }
-        for (int i = 0; i < mNumberOfCameras; i++) {
+        for (int i = 0; i < MAX_CAMERAS; i++) {
             setCameraFree(i);
         }
     }
@@ -110,7 +110,7 @@ void CameraService::onFirstRef()
 }
 
 CameraService::~CameraService() {
-    for (int i = 0; i < mNumberOfCameras; i++) {
+    for (int i = 0; i < MAX_CAMERAS; i++) {
         if (mBusy[i]) {
             LOGE("camera %d is still in use in destructor!", i);
         }
@@ -127,6 +127,13 @@ status_t CameraService::getCameraInfo(int cameraId,
                                       struct CameraInfo* cameraInfo) {
     if (!mModule) {
         return NO_INIT;
+    }
+
+    mNumberOfCameras = mModule->get_number_of_cameras();
+    if (mNumberOfCameras > MAX_CAMERAS) {
+        LOGE("Number of cameras(%d) > MAX_CAMERAS(%d).",
+                mNumberOfCameras, MAX_CAMERAS);
+        mNumberOfCameras = MAX_CAMERAS;
     }
 
     if (cameraId < 0 || cameraId >= mNumberOfCameras) {
