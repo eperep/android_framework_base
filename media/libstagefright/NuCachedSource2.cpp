@@ -407,7 +407,7 @@ void NuCachedSource2::onRead(const sp<AMessage> &msg) {
     ssize_t result = readInternal(offset, data, size);
 
     if (result == -EAGAIN) {
-        msg->post(50000);
+        msg->post(1000);
         return;
     }
 
