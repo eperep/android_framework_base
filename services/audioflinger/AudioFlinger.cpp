@@ -1758,7 +1758,8 @@ uint32_t AudioFlinger::PlaybackThread::hasAudioSession(int sessionId)
     for (size_t i = 0; i < mTracks.size(); ++i) {
         sp<Track> track = mTracks[i];
         if (sessionId == track->sessionId() &&
-                !(track->mCblk->flags & CBLK_INVALID_MSK)) {
+                !(track->mCblk->flags & CBLK_INVALID_MSK) &&
+                !(track->isTerminated())) {
             result |= TRACK_SESSION;
             break;
         }
