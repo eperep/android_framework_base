@@ -72,7 +72,7 @@ private:
 
     enum {
         kPageSize                       = 65536,
-        kDefaultHighWaterThreshold      = 20 * 1024 * 1024,
+        kDefaultHighWaterThreshold      = 25 * 1024 * 1024,
         kDefaultLowWaterThreshold       = 4 * 1024 * 1024,
 
         // Read data after a 15 sec timeout whether we're actively

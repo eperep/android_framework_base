@@ -369,6 +369,7 @@ private:
 
     void setProfileFlags();
 #endif
+    uint32_t mDataSourceFlags;
 };
 
 }  // namespace android
