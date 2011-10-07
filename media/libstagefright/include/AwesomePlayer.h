@@ -18,6 +18,8 @@
 
 #define AWESOME_PLAYER_H_
 
+#define PROFILING
+
 #include "HTTPBase.h"
 #include "TimedEventQueue.h"
 
@@ -27,6 +29,7 @@
 #include <media/stagefright/TimeSource.h>
 #include <utils/threads.h>
 #include <drm/DrmManagerClient.h>
+#include "jittertool.h"
 
 namespace android {
 
@@ -334,6 +337,38 @@ private:
 
     AwesomePlayer(const AwesomePlayer &);
     AwesomePlayer &operator=(const AwesomePlayer &);
+#ifdef PROFILING
+    uint32_t numLateSeek;
+    uint32_t numRendFrame;
+    uint32_t noAudio;
+    uint32_t noAvsync;
+    uint32_t noPreCache;
+    uint32_t statFlag;
+    uint32_t noRender;
+    uint32_t showJitter;
+    uint32_t mNoOfPauses;
+    uint32_t printVideoStat;
+    uint32_t printAudioStat;
+    int32_t videoFrameRate;
+
+    //flags for audio profiling
+    int32_t mInSamplerate;
+    int32_t mInChannels;
+    int32_t mInBitrate;
+    int32_t mOutSamplerate;
+    int32_t mOutChannels;
+
+    int64_t startTimeUs;
+    int64_t audioStartTimeUs;
+    int64_t mInDurationUs;
+    int64_t mBufStartTimeUs;
+    int64_t mHighWaterMarkTimeUs;
+
+    bool mFirstFrame;
+    JitterTool *pJitter;
+
+    void setProfileFlags();
+#endif
 };
 
 }  // namespace android

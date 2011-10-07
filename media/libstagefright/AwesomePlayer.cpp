@@ -201,6 +201,35 @@ AwesomePlayer::AwesomePlayer()
 
     DataSource::RegisterDefaultSniffers();
 
+#ifdef PROFILING
+    numLateSeek  = 0;
+    numRendFrame = 0;
+    noAudio  = 0;
+    noAvsync  = 0;
+    noPreCache = 0;
+    startTimeUs = 0;
+    mBufStartTimeUs = 0;
+    mNoOfPauses = 0;
+    mHighWaterMarkTimeUs = 0;
+    mFirstFrame = true;
+    audioStartTimeUs = 0;
+    statFlag = 0;
+    printVideoStat = 0;
+    printAudioStat = 0;
+    noRender = 0;
+    showJitter = 0;
+    pJitter = NULL;
+    videoFrameRate = 0;
+
+    mInSamplerate = 0;
+    mInChannels = 0;
+    mInDurationUs = 0;
+    mInBitrate = 0;
+
+    mOutSamplerate = 0;
+    mOutChannels = 0;
+#endif
+
     mVideoEvent = new AwesomeEvent(this, &AwesomePlayer::onVideoEvent);
     mVideoEventPending = false;
     mStreamDoneEvent = new AwesomeEvent(this, &AwesomePlayer::onStreamDone);
@@ -227,6 +256,76 @@ AwesomePlayer::~AwesomePlayer() {
 
     mClient.disconnect();
 }
+
+#ifdef PROFILING
+void AwesomePlayer::setProfileFlags() {
+    FILE *fppref = NULL;
+    char Buff[32];
+    char value[PROPERTY_VALUE_MAX];
+
+    if ((fppref=fopen("/data/data/com.automation/files/flagConfig","r"))==NULL) {
+        LOGD("Failed to open file, all profile flags have to set through setprop method.");
+        property_get("enable-prof", value, NULL);
+        statFlag = atoi(value);
+        if (statFlag) {
+            printVideoStat = 1;
+            printAudioStat = 1;
+        }
+
+        property_get("enable-noAud", value, NULL);
+        noAudio = atoi(value);
+
+        property_get("enable-noAvs", value, NULL);
+        noAvsync = atoi(value);
+
+        property_get("enable-noCache", value, NULL);
+        noPreCache = atoi(value);
+
+        property_get("enable-noRend", value, NULL);
+        noRender = atoi(value);
+
+        property_get("enable-showJitter", value, NULL);
+        showJitter = atoi(value);
+
+    } else {
+        while (!feof(fppref)) {
+            fgets(Buff,32,fppref);
+            if (strstr(Buff,"noAvsync") && !noAvsync) {
+                noAvsync = 1;
+            }
+
+            if (strstr(Buff,"noCache") && !noPreCache) {
+                noPreCache = 1;
+            }
+
+            if (strstr(Buff,"noAudio") && !noAudio) {
+                noAudio = 1;
+            }
+
+            if (strstr(Buff,"statFlag") && !statFlag) {
+                statFlag = 1;
+                printVideoStat = 1;
+                printAudioStat = 1;
+            }
+
+            if (strstr(Buff,"noRender") && !noRender) {
+                noRender = 1;
+            }
+
+            if (strstr(Buff,"showJitter") && !noRender) {
+                showJitter = 1;
+            }
+        }
+
+        fclose(fppref);
+    }
+    if (statFlag && showJitter)
+    {
+        pJitter = new JitterTool(100);
+        pJitter->SetShow(showJitter);
+    }
+}
+#endif
 
 void AwesomePlayer::cancelPlayerEvents(bool keepBufferingGoing) {
     mQueue.cancelEvent(mVideoEvent->eventID());
@@ -267,6 +366,9 @@ status_t AwesomePlayer::setDataSource_l(
     reset_l();
 
     mUri = uri;
+#ifdef PROFILING
+    setProfileFlags();
+#endif
 
     if (headers) {
         mUriHeaders = *headers;
@@ -337,6 +439,9 @@ status_t AwesomePlayer::setDataSource_l(
     if (extractor == NULL) {
         return UNKNOWN_ERROR;
     }
+#ifdef PROFILING
+    setProfileFlags();
+#endif
 
     dataSource->getDrmInfo(mDecryptHandle, &mDrmManagerClient);
     if (mDecryptHandle != NULL) {
@@ -401,6 +506,9 @@ status_t AwesomePlayer::setDataSource_l(const sp<MediaExtractor> &extractor) {
             bool success = meta->findInt32(kKeyDisplayWidth, &displayWidth);
             if (success) {
                 success = meta->findInt32(kKeyDisplayHeight, &displayHeight);
+#ifdef PROFILING
+                meta->findInt32(kKeyFrameRate, &videoFrameRate);
+#endif
             }
             if (success) {
                 mDisplayWidth = displayWidth;
@@ -415,9 +523,21 @@ status_t AwesomePlayer::setDataSource_l(const sp<MediaExtractor> &extractor) {
                     &mStats.mTracks.editItemAt(mStats.mVideoTrackIndex);
                 stat->mMIME = mime;
             }
-        } else if (!haveAudio && !strncasecmp(mime, "audio/", 6)) {
+        }
+
+#ifdef PROFILING
+        else if (!haveAudio && !noAudio && !strncasecmp(mime, "audio/", 6)) {
+#else
+        else if (!haveAudio && !strncasecmp(mime, "audio/", 6)) {
+#endif
             setAudioSource(extractor->getTrack(i));
             haveAudio = true;
+#ifdef PROFILING
+            meta->findInt32(kKeySampleRate, &mInSamplerate);
+            meta->findInt32(kKeyChannelCount, &mInChannels);
+            meta->findInt32(kKeyBitRate, &mInBitrate);
+            meta->findInt64(kKeyDuration, &mInDurationUs);
+#endif
 
             {
                 Mutex::Autolock autoLock(mStatsLock);
@@ -678,6 +798,9 @@ void AwesomePlayer::onBufferingUpdate() {
             }
             if (mFlags & PREPARING) {
                 LOGV("cache has reached EOS, prepare is done.");
+#ifdef PROFILING
+                mHighWaterMarkTimeUs = ALooper::GetNowUs();
+#endif
                 finishAsyncPrepare_l();
             }
         } else {
@@ -700,6 +823,9 @@ void AwesomePlayer::onBufferingUpdate() {
                         && (cachedDataRemaining < kLowWaterMarkBytes)) {
                     LOGI("cache is running low (< %d) , pausing.",
                          kLowWaterMarkBytes);
+#ifdef PROFILING
+                    ++mNoOfPauses;
+#endif
                     modifyFlags(CACHE_UNDERRUN, SET);
                     pause_l();
                     ensureCacheIsFetching_l();
@@ -759,6 +885,9 @@ void AwesomePlayer::onBufferingUpdate() {
                 && (cachedDurationUs < kLowWaterMarkUs)) {
             LOGI("cache is running low (%.2f secs) , pausing.",
                  cachedDurationUs / 1E6);
+#ifdef PROFILING
+            ++mNoOfPauses;
+#endif
             modifyFlags(CACHE_UNDERRUN, SET);
             pause_l();
             ensureCacheIsFetching_l();
@@ -777,6 +906,9 @@ void AwesomePlayer::onBufferingUpdate() {
                 LOGV("cache has filled up (%.2f secs), prepare is done",
                      cachedDurationUs / 1E6);
                 finishAsyncPrepare_l();
+#ifdef PROFILING
+                mHighWaterMarkTimeUs = ALooper::GetNowUs();
+#endif
             }
         }
     }
@@ -989,6 +1121,15 @@ status_t AwesomePlayer::startAudioPlayer_l(bool sendErrorNotification) {
 
     modifyFlags(AUDIO_RUNNING, SET);
 
+#ifdef PROFILING
+    audioStartTimeUs = ALooper::GetNowUs();
+    {
+        sp<MetaData> meta = mAudioSource->getFormat();
+        meta->findInt32(kKeySampleRate, &mOutSamplerate);
+        meta->findInt32(kKeyChannelCount, &mOutChannels);
+    }
+#endif
+
     mWatchForAudioEOS = true;
 
     return OK;
@@ -1059,6 +1200,12 @@ void AwesomePlayer::initRenderer_l() {
     if (mNativeWindow == NULL) {
         return;
     }
+
+#ifdef PROFILING
+    if (noRender) {
+        return;
+    }
+#endif
 
     sp<MetaData> meta = mVideoSource->getFormat();
 
@@ -1745,6 +1892,13 @@ void AwesomePlayer::onVideoEvent() {
 
     if (mFlags & FIRST_FRAME) {
         modifyFlags(FIRST_FRAME, CLEAR);
+#ifdef PROFILING
+    if (!(mFlags & AUDIO_AT_EOS) && !(mFlags & VIDEO_AT_EOS) && mFirstFrame) {
+        startTimeUs = ALooper::GetNowUs();
+        mFirstFrame = false;
+    }
+#endif
+
         mSinceLastDropped = 0;
         mTimeSourceDeltaUs = ts->getRealTimeUs() - timeUs;
     }
@@ -1771,56 +1925,59 @@ void AwesomePlayer::onVideoEvent() {
         int64_t nowUs = ts->getRealTimeUs() - mTimeSourceDeltaUs;
 
         int64_t latenessUs = nowUs - timeUs;
-
-        if (latenessUs > 500000ll
+#ifdef PROFILING
+        if (!noAvsync)
+#endif
+        {
+            if (latenessUs > 500000ll
                 && mRTSPController == NULL
                 && mAudioPlayer != NULL
                 && mAudioPlayer->getMediaTimeMapping(
-                    &realTimeUs, &mediaTimeUs)) {
-            LOGI("we're much too late (%.2f secs), video skipping ahead",
-                 latenessUs / 1E6);
-
-            mVideoBuffer->release();
-            mVideoBuffer = NULL;
-
-            mSeeking = SEEK_VIDEO_ONLY;
-            mSeekTimeUs = mediaTimeUs;
-
-            postVideoEvent_l();
-            return;
-        }
-
-        if (latenessUs > 40000) {
-            // We're more than 40ms late.
-            LOGV("we're late by %lld us (%.2f secs)",
-                 latenessUs, latenessUs / 1E6);
-
-            if (!(mFlags & SLOW_DECODER_HACK)
-                    || mSinceLastDropped > FRAME_DROP_FREQ)
-            {
-                LOGV("we're late by %lld us (%.2f secs) dropping "
-                     "one after %d frames",
-                     latenessUs, latenessUs / 1E6, mSinceLastDropped);
-
-                mSinceLastDropped = 0;
+                &realTimeUs, &mediaTimeUs)) {
+                LOGI("we're much too late (%.2f secs), video skipping ahead",latenessUs / 1E6);
+#ifdef PROFILING
+                numLateSeek += 1;
+#endif
                 mVideoBuffer->release();
                 mVideoBuffer = NULL;
+                mSeeking = SEEK_VIDEO_ONLY;
+                mSeekTimeUs = mediaTimeUs;
+
+                postVideoEvent_l();
+                return;
+            }
+
+            if (latenessUs > 40000) {
+                // We're more than 40ms late.
+                LOGV("we're late by %lld us (%.2f secs)",
+                latenessUs, latenessUs / 1E6);
+
+                if (!(mFlags & SLOW_DECODER_HACK)
+                      || mSinceLastDropped > FRAME_DROP_FREQ)
+                {
+                    LOGV("we're late by %lld us (%.2f secs) dropping "
+                          "one after %d frames",
+                    latenessUs, latenessUs / 1E6, mSinceLastDropped);
+
+                    mSinceLastDropped = 0;
+                    mVideoBuffer->release();
+                    mVideoBuffer = NULL;
 
                 {
                     Mutex::Autolock autoLock(mStatsLock);
                     ++mStats.mNumVideoFramesDropped;
                 }
 
-                postVideoEvent_l();
+                    postVideoEvent_l();
+                    return;
+                }
+            }
+
+            if (latenessUs < -10000) {
+                // We're more than 10ms early.
+                postVideoEvent_l(10000);
                 return;
             }
-        }
-
-        if (latenessUs < -10000) {
-            // We're more than 10ms early.
-
-            postVideoEvent_l(10000);
-            return;
         }
     }
 
@@ -1830,6 +1987,16 @@ void AwesomePlayer::onVideoEvent() {
 
         initRenderer_l();
     }
+
+#ifdef PROFILING
+    if (mVideoRenderer != NULL) {
+        numRendFrame++;
+    }
+    if (statFlag && showJitter && pJitter)
+    {
+        pJitter->AddPoint();
+    }
+#endif
 
     if (mVideoRenderer != NULL) {
         mSinceLastDropped++;
@@ -1861,6 +2028,66 @@ void AwesomePlayer::postStreamDoneEvent_l(status_t status) {
         return;
     }
     mStreamDoneEventPending = true;
+
+#ifdef PROFILING
+    if (statFlag && (mFlags & VIDEO_AT_EOS) && printVideoStat) {
+        LOGI("--------Video Statistics------------");
+        LOGI("--------Video Duration = %lld sec", ((mDurationUs ) / 1000000));
+        LOGI("--------Original FPS = %d", videoFrameRate);
+        LOGI("--------Avg playback fps = %.2f", numRendFrame * 1E6 / ((ALooper::GetNowUs() - startTimeUs)));
+        LOGI("--------Late seeks = %d", numLateSeek);
+        LOGI("--------Decoded Frames = %d", (int) mStats.mNumVideoFramesDecoded);
+        LOGI("--------Dropped frames = %d", (int) mStats.mNumVideoFramesDropped);
+        LOGI("--------Rendered frames = %d", numRendFrame);
+
+        int64_t bufferingLatencyUs = 0;
+
+        if (mHighWaterMarkTimeUs != 0) {
+            bufferingLatencyUs = mHighWaterMarkTimeUs - mBufStartTimeUs;
+        }
+        LOGI("--------Buffering Latency = %.2f secs", bufferingLatencyUs / 1E6);
+        LOGI("--------Number of Pauses due to Cache Underrun = %d", mNoOfPauses);
+
+        int64_t absolutePlayTimeUs = ALooper::GetNowUs() - startTimeUs;
+        int64_t avgDurationOfPauseUs = 0;
+
+        if (mNoOfPauses > 0) {
+            avgDurationOfPauseUs = (absolutePlayTimeUs - mDurationUs) / mNoOfPauses;
+        }
+        LOGI("--------Average duration of Pause = %.2f secs", avgDurationOfPauseUs / 1E6);
+        LOGI("--------Absolute Playback time = %.2f secs", absolutePlayTimeUs / 1E6);
+
+        if (pJitter && showJitter)
+        {
+            double fJitterAvg = 0, fJitterStd = 0, fJitterHighest = 0;
+            pJitter->GetAvgs(&fJitterStd, &fJitterAvg, &fJitterHighest);
+            LOGI("--------Average jitter = %f uSec \n", fJitterStd);
+            LOGI("--------Highest instantaneous jitter = %f uSec \n", fJitterHighest);
+            LOGI("--------Mean time between frame(used in jitter) = %f uSec \n", fJitterAvg);
+            delete pJitter;
+            pJitter = NULL;
+        }
+        printVideoStat = 0;
+    }
+
+    if (statFlag && (mFlags & AUDIO_AT_EOS) && printAudioStat) {
+        int64_t audioOutDurationUs = (ALooper::GetNowUs() - audioStartTimeUs);
+        LOGI("--------Audio Statistics------------");
+
+        LOGI("--------BitRate = %d", mInBitrate);
+        LOGI("--------Input Channels = %d", mInChannels);
+        LOGI("--------Input Sampling Rate = %d\n", mInSamplerate);
+        LOGI("--------Input Duration = %lld min:%lld sec\n", ((mInDurationUs / 60) / 1000000ll),
+                                                              ((mInDurationUs/1000000ll) % 60));
+
+        LOGI("--------Output Channels = %d", mOutChannels);
+        LOGI("--------Output Sampling Rate = %d", mOutSamplerate);
+        LOGI("--------Duration Played for = %lld min:%lld sec\n", ((audioOutDurationUs / 60) / 1000000ll),
+                                                                  ((audioOutDurationUs/1000000ll) % 60));
+        printAudioStat = 0;
+    }
+
+#endif
 
     mStreamDoneStatus = status;
     mQueue.postEvent(mStreamDoneEvent);
@@ -1999,6 +2226,9 @@ status_t AwesomePlayer::finishSetDataSource_l() {
     if (!strncasecmp("http://", mUri.string(), 7)
             || !strncasecmp("https://", mUri.string(), 8)
             || isWidevineStreaming) {
+#ifdef PROFILING
+        mBufStartTimeUs = ALooper::GetNowUs();
+#endif
         mConnectingDataSource = HTTPBase::Create(
                 (mFlags & INCOGNITO)
                     ? HTTPBase::kFlagIncognito
@@ -2089,6 +2319,10 @@ status_t AwesomePlayer::finishSetDataSource_l() {
             }
         }
     } else if (!strncasecmp("rtsp://", mUri.string(), 7)) {
+#ifdef PROFILING
+        mBufStartTimeUs = ALooper::GetNowUs();
+#endif
+
         if (mLooper == NULL) {
             mLooper = new ALooper;
             mLooper->setName("rtsp");
