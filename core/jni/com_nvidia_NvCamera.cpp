@@ -59,6 +59,24 @@ static jstring com_nvidia_NvCamera_getCustomParameters(JNIEnv *env, jobject thiz
     return env->NewStringUTF(camera->getCustomParameters().string());
 }
 
+static void com_nvidia_NvCamera_getNvCameraInfo(JNIEnv *env, jobject thiz,
+    jint cameraId, jobject info_obj)
+{
+    LOGV("%s: Enter", __func__);
+    CameraInfoExtended cameraInfoExtended;
+    status_t rc = Camera::getCameraInfoExtended(cameraId, &cameraInfoExtended);
+    if (rc != NO_ERROR) {
+        jniThrowException(env, "java/lang/RuntimeException",
+                          "Fail to get extended camera info");
+        return;
+    }
+    env->SetIntField(info_obj, fields.facing, cameraInfoExtended.facing);
+    env->SetIntField(info_obj, fields.orientation, cameraInfoExtended.orientation);
+    env->SetIntField(info_obj, fields.stereoCaps, cameraInfoExtended.stereoCaps);
+    env->SetIntField(info_obj, fields.connection, cameraInfoExtended.connection);
+}
+
+
 static JNINativeMethod NvcamMethods[] = {
   { "native_setCustomParameters",
     "(Ljava/lang/String;)V",
@@ -66,12 +84,19 @@ static JNINativeMethod NvcamMethods[] = {
   { "native_getCustomParameters",
     "()Ljava/lang/String;",
     (void *)com_nvidia_NvCamera_getCustomParameters },
+  { "getNvCameraInfo",
+    "(ILcom/nvidia/NvCamera$NvCameraInfo;)V",
+    (void*)com_nvidia_NvCamera_getNvCameraInfo },
 };
 
 int register_nvidia_hardware_NvCamera(JNIEnv *env)
 {
     field fields_to_find[] = {
-        { "com/nvidia/NvCamera", "mNativeContext",   "I", &fields.context },
+        { "com/nvidia/NvCamera", "mNativeContext", "I", &fields.context },
+        { "com/nvidia/NvCamera$NvCameraInfo", "facing", "I", &fields.facing },
+        { "com/nvidia/NvCamera$NvCameraInfo", "orientation", "I", &fields.orientation },
+        { "com/nvidia/NvCamera$NvCameraInfo", "stereoCaps", "I", &fields.stereoCaps },
+        { "com/nvidia/NvCamera$NvCameraInfo", "connection", "I", &fields.connection }
     };
 
     if (find_fields(env, fields_to_find, NELEM(fields_to_find)) < 0)

@@ -48,6 +48,24 @@ struct CameraInfo {
     int orientation;
 };
 
+struct CameraInfoExtended : public CameraInfo {
+    /**
+     * Read-only field.
+     * Indicates whether the camera can be used in stereo mode. It should be
+     * CAMERA_STEREO_CAPS_UNDEFINED, CAMERA_STEREO_CAPS_MONO or CAMERA_STEREO_CAPS_STEREO.
+     */
+    int stereoCaps;
+
+    /**
+     * Read-only field.
+     * It indicates whether camera is connected via USB, or is built-in.
+     * CAMERA_CONNECTION_INTERNAL indicates a built-in camera,
+     * while CAMERA_CONNECTION_USB indicates a camera connected via USB. It should be
+     * CAMERA_CONNECTION_UNDEFINED, CAMERA_CONNECTION_INTERNAL or CAMERA_CONNECTION_USB.
+     */
+    int connection;
+};
+
 class ICameraService;
 class ICamera;
 class Surface;
@@ -72,6 +90,8 @@ public:
     static  int32_t     getNumberOfCameras();
     static  status_t    getCameraInfo(int cameraId,
                                       struct CameraInfo* cameraInfo);
+    static  status_t    getCameraInfoExtended(int cameraId,
+                                      struct CameraInfoExtended* cameraInfoExtended);
     static  sp<Camera>  connect(int cameraId);
             virtual     ~Camera();
             void        init();

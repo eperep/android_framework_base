@@ -46,6 +46,8 @@ public:
     virtual int32_t     getNumberOfCameras();
     virtual status_t    getCameraInfo(int cameraId,
                                       struct CameraInfo* cameraInfo);
+    virtual status_t    getCameraInfoExtended(int cameraId,
+                                      struct CameraInfoExtended* cameraInfoExtended);
     virtual sp<ICamera> connect(const sp<ICameraClient>& cameraClient, int cameraId);
     virtual void        removeClient(const sp<ICameraClient>& cameraClient);
     virtual sp<Client>  getClientById(int cameraId);

@@ -78,6 +78,21 @@ public:
 
     // Autoexposure lock
     static const char NV_AUTOEXPOSURE_LOCK[];
+
+    // Stereo mode
+    static const char NV_STEREO_MODE[];
+
+    // Video speed
+    static const char NV_VIDEO_SPEED[];
+
+    // Sensor capture rate
+    static const char NV_SENSOR_CAPTURE_RATE[];
+
+    // Per-resolution video capabilities
+    static const char NV_CAPABILITY_FOR_VIDEO_SIZE[];
+
+    // Generic suffix used to query capabilities for parameters
+    static const char NV_SUPPORTED_VALUES_SUFFIX[];
 };
 
 }

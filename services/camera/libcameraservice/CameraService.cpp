@@ -147,6 +147,33 @@ status_t CameraService::getCameraInfo(int cameraId,
     return rc;
 }
 
+status_t CameraService::getCameraInfoExtended(int cameraId,
+                                              struct CameraInfoExtended* cameraInfo) {
+    if (!mModule) {
+        return NO_INIT;
+    }
+
+    mNumberOfCameras = mModule->get_number_of_cameras();
+    if (mNumberOfCameras > MAX_CAMERAS) {
+        LOGE("Number of cameras(%d) > MAX_CAMERAS(%d).",
+                mNumberOfCameras, MAX_CAMERAS);
+        mNumberOfCameras = MAX_CAMERAS;
+    }
+
+    if (cameraId < 0 || cameraId >= mNumberOfCameras) {
+        return BAD_VALUE;
+    }
+
+    struct camera_info_extended info;
+    status_t rc = mModule->get_camera_info_extended(cameraId, &info);
+    cameraInfo->facing = info.facing;
+    cameraInfo->orientation = info.orientation;
+    cameraInfo->stereoCaps = info.stereoCaps;
+    cameraInfo->connection = info.connection;
+
+    return rc;
+}
+
 sp<ICamera> CameraService::connect(
         const sp<ICameraClient>& cameraClient, int cameraId) {
     int callingPid = getCallingPid();

@@ -32,6 +32,8 @@ struct fields_t {
     jmethodID   post_event;
     jmethodID   rect_constructor;
     jmethodID   face_constructor;
+    jfieldID    stereoCaps;
+    jfieldID    connection;
 };
 
 struct field {

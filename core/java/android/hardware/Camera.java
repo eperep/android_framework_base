@@ -1211,7 +1211,7 @@ public class Camera {
         public Point mouth = null;
     }
 
-    // Error codes match the enum in include/ui/Camera.h
+    // Error codes match the enum in include/camera/Camera.h
 
     /**
      * Unspecified camera error.

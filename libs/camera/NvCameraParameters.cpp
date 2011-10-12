@@ -71,6 +71,21 @@ const char NvCameraParameters::NV_AUTOWHITEBALANCE_LOCK[] = "auto-whitebalance-l
 // Value for autoexposure lock
 const char NvCameraParameters::NV_AUTOEXPOSURE_LOCK[] = "auto-exposure-lock";
 
+// Value for stereo mode
+const char NvCameraParameters::NV_STEREO_MODE[] = "nv-stereo-mode";
+
+// Value for video speed
+const char NvCameraParameters::NV_VIDEO_SPEED[] = "nv-video-speed";
+
+// Value for sensor capture rate
+const char NvCameraParameters::NV_SENSOR_CAPTURE_RATE[] = "nv-sensor-capture-rate";
+
+// Value for per-resolution video capabilities
+const char NvCameraParameters::NV_CAPABILITY_FOR_VIDEO_SIZE[] = "nv-capabilities-for-video-size";
+
+// Generic suffix used to query capabilities for parameters
+const char NvCameraParameters::NV_SUPPORTED_VALUES_SUFFIX[] = "-values";
+
 NvCameraParameters::NvCameraParameters()
                 : CameraParameters()
 {

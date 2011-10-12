@@ -115,6 +115,13 @@ status_t Camera::getCameraInfo(int cameraId,
     return cs->getCameraInfo(cameraId, cameraInfo);
 }
 
+status_t Camera::getCameraInfoExtended(int cameraId,
+                               struct CameraInfoExtended* cameraInfoExtended) {
+    const sp<ICameraService>& cs = getCameraService();
+    if (cs == 0) return UNKNOWN_ERROR;
+    return cs->getCameraInfoExtended(cameraId, cameraInfoExtended);
+}
+
 sp<Camera> Camera::connect(int cameraId)
 {
     LOGV("connect");

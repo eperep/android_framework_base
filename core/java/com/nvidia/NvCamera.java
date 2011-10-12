@@ -19,7 +19,7 @@
 
 /**
  * @file
- * <b>NVIDIA Tegra Android Camera API Extensions</b>
+ * <b>NVIDIA Tegra Android Camera Extensions</b>
  *
  * @b Description: Exposes additional functionality from the Android Camera
  *    Hardware Abstraction Layer (Camera HAL) to the Java camera API.
@@ -43,34 +43,116 @@
  * existing applications. The extended APIs that these classes implement on
  * top of the stock Android API are described in this section.
  *
+ * Unless stated otherwise, invalid inputs are caught at the HAL layer
+ * in the same manner as standard camera settings. Upon seeing an invalid
+ * input, the Camera HAL will return an error. When the CameraService receives
+ * an error, it will throw an exception.
+ *
+ * All of these settings persist as long as the camera object exists.
+ * Therefore, an application must set them again for each new camera object
+ * that it creates. It should be noted that Android's camera application
+ * creates a new camera object each time it switches between front and back
+ * cameras.
  * @{
  */
 package com.nvidia;
 
 import android.util.Log;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.StringTokenizer;
 
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
 
-
 public class NvCamera extends Camera{
     private static final String TAG = "NvCamera";
 
-    public static class NvCameraInfo extends CameraInfo{
-        /**
-         * The camera is USB-based.
-         */
-        public static final int CAMERA_USB = 2;
+/** @name Extended Camera Information
+ *
+ * Use this information to access camera information unavailable in standard
+ * Android API. Information comes in from the HAL.
+ */
+/*@{*/
+    /**
+     * Gets the extended information about a particular camera.
+     * If @c getNumberOfCameras() returns N, the valid ID is 0 to N-1.
+     */
+    public native static void getNvCameraInfo(int cameraId, NvCameraInfo cameraInfo);
 
+    public static class NvCameraInfo extends CameraInfo {
+        /**
+         * Holds the attribute indicating the facing of the camera. This
+         * is random as the camera can move.
+         *
+         * Attribute facing in base class defines only front and back.
+         * This constant is for cameras that can be moved around.
+         * Hence, possible values for attribute facing are
+         * ::CAMERA_FACING_BACK, ::CAMERA_FACING_FRONT, or
+         * ::CAMERA_FACING_UNKNOWN.
+         */
+        public static final int CAMERA_FACING_UNKNOWN = 2;
+
+        // Stereo capabilites codes match the enum in include/camera/Camera.h
+        /**
+         * Indicates undefined stereoscopic capabilities.
+         */
+        public static final int CAMERA_STEREO_CAPS_UNDEFINED = 0;
+
+        /**
+         * Indicates the camera is monoscopic.
+         */
+        public static final int CAMERA_STEREO_CAPS_MONO = 1;
+
+        /**
+         * Indicates the camera is stereoscopic.
+         */
+        public static final int CAMERA_STEREO_CAPS_STEREO = 2;
+
+        /**
+         * Indicates whether the camera can be used in stereo mode. It should be
+         * ::CAMERA_STEREO_CAPS_UNDEFINED, ::CAMERA_STEREO_CAPS_MONO,
+         * or ::CAMERA_STEREO_CAPS_STEREO.
+         *
+         * Read-only field.
+         */
+        public int stereoCaps;
+
+        // Connection type codes match the enum in include/camera/Camera.h
+        /**
+         * Indicates an undefined connection type.
+         */
+        public static final int CAMERA_CONNECTION_UNDEFINED = 0;
+
+        /**
+         * Indicates the camera is internal (built into the device).
+         */
+        public static final int CAMERA_CONNECTION_INTERNAL = 1;
+
+        /**
+         * Indicates the camera is connected via USB.
+         */
+        public static final int CAMERA_CONNECTION_USB = 2;
+
+        /**
+         * Indicates whether the camera is connected via USB or is built-in.
+         *
+         * ::CAMERA_CONNECTION_INTERNAL indicates a built-in camera, while
+         * ::CAMERA_CONNECTION_USB indicates a camera connected via USB.
+         * It should be ::CAMERA_CONNECTION_UNDEFINED, ::CAMERA_CONNECTION_INTERNAL,
+         * or ::CAMERA_CONNECTION_USB.
+         *
+         * Read-only field.
+         */
+        public int connection;
     };
+/*@}*/
 
     public NvWindow newNvWindow() {
         return new NvWindow();
     }
 
-    public class NvWindow {
+    public static class NvWindow {
         public NvWindow() {
             left = 0;
             top = 0;
@@ -92,6 +174,51 @@ public class NvCamera extends Camera{
         public int right;
         public int bottom;
         public int weight;
+    }
+
+    public static class NvVideoPreviewFps {
+
+        public NvVideoPreviewFps() {
+            VideoWidth = 0;
+            VideoHeight = 0;
+            MaxPreviewWidth = 0;
+            MaxPreviewHeight = 0;
+            MaxFps = 0;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof NvVideoPreviewFps)) {
+                return false;
+            }
+            NvVideoPreviewFps vpf = (NvVideoPreviewFps) obj;
+            return (VideoWidth == vpf.VideoWidth &&
+                    VideoHeight == vpf.VideoHeight &&
+                    MaxPreviewWidth == vpf.MaxPreviewWidth &&
+                    MaxPreviewHeight == vpf.MaxPreviewHeight &&
+                    MaxFps == vpf.MaxFps);
+        }
+
+        /**
+         * Supported Video Width.
+         */
+        public int VideoWidth;
+        /**
+         * Supported Video Height.
+         */
+        public int VideoHeight;
+        /**
+         * Maximum Preview Width for supported Video resolution.
+         */
+        public int MaxPreviewWidth;
+        /**
+         * Maximum Preview Height for supported Video resolution.
+         */
+        public int MaxPreviewHeight;
+        /**
+         * Maximum Capture Frame rate for supported Video resolution.
+         */
+        public int MaxFps;
     }
 
     private native final void native_setCustomParameters(String params);
@@ -146,12 +273,71 @@ public class NvCamera extends Camera{
         private static final String NV_FOCUS_POSITION = "nv-focus-position";
         private static final String NV_AUTOWHITEBALANCE_LOCK = "auto-whitebalance-lock";
         private static final String NV_AUTOEXPOSURE_LOCK = "auto-exposure-lock";
+        private static final String NV_STEREO_MODE = "nv-stereo-mode";
+        private static final String NV_VIDEO_SPEED = "nv-video-speed";
+        private static final String NV_SENSOR_CAPTURE_RATE = "nv-sensor-capture-rate";
+        private static final String NV_CAPABILITY_FOR_VIDEO_SIZE = "nv-capabilities-for-video-size";
+
+        // Cloned from Camera.java to avoid changing to protected in there
+        private static final String NV_SUPPORTED_VALUES_SUFFIX = "-values";
 
         protected NvParameters() {
             super();
         }
 
+        // Cloned from Camera.java to avoid changing to protected in there
+        // Splits a comma delimited string to an ArrayList of String.
+        // Return null if the passing string is null or the size is 0.
+    /**
+     * @hide
+     */
+        protected ArrayList<String> splitCloned(String str) {
+            if (str == null) return null;
+
+            // Use StringTokenizer because it is faster than split.
+            StringTokenizer tokenizer = new StringTokenizer(str, ",");
+            ArrayList<String> substrings = new ArrayList<String>();
+            while (tokenizer.hasMoreElements()) {
+                substrings.add(tokenizer.nextToken());
+            }
+            return substrings;
+        }
+
 /** @name Negative Shutter Lag
+ *
+ * Negative Shutter Lag (NSL) is a generalization of Zero Shutter Lag.
+ * In essence, a circular queue of the most recent images from the sensor
+ * is maintained during preview. At capture time, the desired images
+ * are returned. This allows not only zero shutter lag, but negative shutter
+ * lag, i.e., permitting the capture of images from before the capture was
+ * requested.
+ *
+ * The key components of the NSL API are buffer management and describing
+ * the NSL burst.
+ *
+ * The number of NSL buffers is managed with setNSLNumBuffers() and
+ * getNSLNumBuffers(). The implementation will allocate or free memory
+ * as required. Note that requesting 0 buffers will free all
+ * NSL buffers.
+ *
+ * The NSL burst is controlled by two parameters, the skip count and the
+ * burst count. The burst count is straightforward: it indicates the
+ * number of frames to return to the application. The skip count tells
+ * the implementation how many frames to drop in between the frames that
+ * are returned. To capture the burst with as little change between
+ * images as possible, set the skip count to 0. In contrast, a
+ * \em best picture feature may want temporal gaps between the frames to
+ * allow time for more change between frames.
+ *
+ * @note NSL burst has the same description as a regular burst.
+ * A non-zero NSL burst count indicates the number of frames to capture
+ * (return) from the NSL buffers. A non-zero regular burst count
+ * indicates the number of frames to capture live (no NSL). If both
+ * are non-zero, the NSL frames will be returned first followed by the
+ * live burst frames. As an example, to capture 8 frames with the first
+ * 5 from the NSL buffers, set the NSL burst length to 5 and the regular
+ * burst length to 3.
+ *
  */
 /*@{*/
     /**
@@ -246,6 +432,36 @@ public class NvCamera extends Camera{
 /*@}*/
 
 /** @name Burst Capture
+ *
+ * The Burst Capture API provides a facility for capturing a burst of
+ * images live from the sensor--a 'normal' burst capture sequence,
+ * contrasted with the NSL captures described in "Negative Shutter Lag".
+ *
+ * The Burst Capture API does not involve allocation of additional
+ * buffers. In some applications, this may be preferable to NSL's
+ * memory footprint increase, not to mention the savings in memory
+ * bandwidth and power from keeping the sensor in a more efficient
+ * preview resolution during preview. Further, the normal burst captures
+ * do not suffer from preview frame rate reductions due to limitations in
+ * the full-resolution frame rate available from some sensors.
+ *
+ * The burst is controlled by two parameters: the skip count and the
+ * burst count. The burst count is straightforward--it indicates the
+ * number of frames to return to the application. The skip count tells
+ * the implementation how many frames to drop in between the frames that
+ * are returned. To capture the burst with as little change between
+ * images as possible, set the skip count to 0. In contrast, a
+ * <em>best picture</em> feature may want temporal gaps between the frames to
+ * allow time for more change between frames.
+ *
+ * @note NSL burst has the same description as a regular burst.
+ * A non-zero NSL burst count indicates the number of frames to capture
+ * (return) from the NSL buffers. A non-zero regular burst count
+ * indicates the number of frames to capture live (no NSL). If both
+ * are non-zero, the NSL frames will be returned first followed by the
+ * live burst frames. As an example, to capture 8 frames with the first
+ * 5 from the NSL buffers, set the NSL burst length to 5 and the regular
+ * burst length to 3.
  */
 /*@{*/
 
@@ -289,6 +505,20 @@ public class NvCamera extends Camera{
 /*@}*/
 
 /** @name Raw Dump Flag
+ *
+ * Manages the raw dump flags.
+ *
+ * The Raw Dump API controls the functionality for capturing raw image
+ * data from sensors.
+ *
+ * @note This refers to the raw Bayer data from
+ * the sensors, not YUV data right before image or video compression.
+ *
+ * The raw dump value contains three controls:
+ * - Bit 0 turns the facility on and off.
+ * - Bit 1 distinguishes between capturing raw data to mass storage
+ *     and providing raw data to the application.
+ * - Bit 2 controls the inclusion of NVIDIA's raw file header.
  */
 /*@{*/
 
@@ -319,30 +549,27 @@ public class NvCamera extends Camera{
 /*@}*/
 /** @name Bracket Capture
  *
+ * Sets the EV bracket capture setting.
+ *
+ * After this property is set and a burst capture command is issued, each
+ * image in the burst capture sequence will be adjusted by the specified
+ * amount by the EV setting (-3 to 3 inclusive).
+ *
+ * The first image received will have the left most compensation value;
+ * likewise, the last image received will contain the last specified
+ * compensation value.
+ *
+ * Setting the value to an empty string disables bracket capture.
+ *
+ * Interaction with NSL captures during bracket capture NSL is not
+ * available. Bracket capture is cleared by setting an empty string, and
+ * once cleared NSL will operate as normal. Non-burst captures will operate
+ * as normal.
+ *
+ * - Item value range: [-3.0, +3.0] float
+ * - Number of items:  [0, 2-7] , 0 or at least two and up to seven values.
  */
 /*@{*/
-    /**
-     * Sets the EV bracket capture setting.
-     *
-     * After this property is set and a burst capture command is issued, each
-     * image in the burst capture sequence will be adjusted by the specified
-     * amount by the EV setting (-3 to 3 inclusive).
-     *
-     * The first image received will have the left most compensation value;
-     * likewise, the last image received will contain the last specified
-     * compensation value.
-     *
-     * Setting the value to an empty string disables bracket capture.
-     *
-     * Interaction with NSL captures during bracket capture NSL is not
-     * available. Bracket capture is cleared by setting an empty string, and
-     * once cleared NSL will operate as normal. Non-burst captures will operate
-     * as normal.
-     *
-     * - Item value range: [-3.0, +3.0] float
-     * - Number of items:  [0, 2-7] , 0 or at least two and up to seven values.
-     *
-     */
         public void setEvBracketCapture(float[] evValues) {
             StringBuilder evString = new StringBuilder(35);
 
@@ -363,8 +590,182 @@ public class NvCamera extends Camera{
         }
 /*@}*/
 
+/** @name Sensor Capture Rate
+ *
+ * Sets the sensor's capture rate during slow motion video capture.
+ *
+ * Sets the sensor's capture rate (in fps) and is used with the
+ * video-speed parameter. To give the effects of slow motion video
+ * capture, the sensor is configured at high rate and the timestamps
+ * are modified based on the video-speed parameter.
+ *
+ * For example, if video-speed is set for a slow motion video capture (0.5
+ * or half speed), and sensor-capture-rate is set at 60 fps, then to
+ * get a slow motion video capture effect, the outgoing camera buffer's
+ * timestamp will be modified to 33 ms (1 / FrameRate * recording speed)
+ * instead of 17 ms (1 / FrameRate).
+ *
+ * This parameter must be set after ::PreviewFrameRate. @c PreviewFrameRate
+ * is used across encoder and writer, and as this is a special case we
+ * want the playback rate different from the capture rate.
+ */
+/*@{*/
+        public void setSensorCaptureRate(int value) {
+            String v = Integer.toString(value);
+            set(NV_SENSOR_CAPTURE_RATE, v);
+        }
+
+     /**
+      * Gets the supported sensor capture rate.
+      */
+        public List<Integer> getSupportedSensorCaptureRate() {
+
+            String str = get(NV_SENSOR_CAPTURE_RATE + NV_SUPPORTED_VALUES_SUFFIX);
+            if (str == null) return null;
+
+            ArrayList<Integer> SensorCaptureRate = new ArrayList<Integer>();
+            StringTokenizer tokenizer = new StringTokenizer(str, ",");
+
+            while (tokenizer.hasMoreElements()) {
+                String token = tokenizer.nextToken();
+                int r = Integer.parseInt(token);
+                SensorCaptureRate.add(r);
+            }
+            return SensorCaptureRate;
+        }
+/*@}*/
+
+/** @name Video Speed
+ *
+ * Sets the video speed for camera recording.
+ *
+ * The video speed parameter adjusts the timestamps of captured frames to
+ * give the effect of slow motion and fast motion video recording.
+ * Currently supported values are
+ * - 0.25  - 1/4x  - One-fourth speed (Slow motion)
+ * - 0.5   - 1/2x  - Half speed (Slow motion)
+ * - 1.0   - 1x    - Normal speed
+ * - 2.0   - 2x    - Twice the normal speed (Fast motion)
+ * - 3.0   - 3x    - Three times the normal speed (Fast motion)
+ * - 4.0   - 4x    - Four times the normal speed (Fast motion)
+ *
+ * For example, if video-speed is set for a slow motion video capture (0.5
+ * or half speed), and sensor-capture-rate is set at 60 fps, then to
+ * get a slow motion video capture effect, the outgoing camera buffer's
+ * timestamp will be modified to 33 ms (1 / FrameRate * recording speed)
+ * instead of 17 ms (1 / FrameRate).
+ */
+/*@{*/
+	/**
+	 * Sets the video speed for camera recording.
+	 */
+        public void setVideoSpeed(float value) {
+            String v = Float.toString(value);
+            set(NV_VIDEO_SPEED, v);
+        }
+
+     /**
+      * Gets the current supported video speed.
+      */
+        public List<Float> getSupportedVideoSpeeds() {
+
+            String str = get(NV_VIDEO_SPEED + NV_SUPPORTED_VALUES_SUFFIX);
+            if (str == null) return null;
+
+            ArrayList<Float> videospeeds = new ArrayList<Float>();
+            StringTokenizer tokenizer = new StringTokenizer(str, ",");
+
+            while (tokenizer.hasMoreElements()) {
+                String token = tokenizer.nextToken();
+                float s = Float.parseFloat(token);
+                videospeeds.add(s);
+            }
+            return videospeeds;
+        }
+/*@}*/
+
+
+/** @name Maximum Video Preview Resolution/Frame Rate
+ *
+ * Gets the list of maximum preview resolution supported with the maximum
+ * frame rate for each video resolution. Applications can get this list and
+ * then, based upon the suppported preview resolutions and the supported
+ * frame rates, set the preview resolution and the frame rate for a
+ * specific video resolution, ensuring the preview resolution set by it
+ * does not exceed the maximum preview reolution mentioned in this list.
+ * Applications must also ensure the sensor-capture-rate does not
+ * exceed the maximum frame rate mentioned in this list for the requested
+ * video size.
+ */
+/*@{*/
+        public List<NvVideoPreviewFps> getCapabilitiesForVideoSizes() {
+            ArrayList<NvVideoPreviewFps> VideoPreviewSizeFPS =
+                new ArrayList<NvVideoPreviewFps>();
+
+            /** Gets the supported sensor mode list. */
+            String str = get(NV_CAPABILITY_FOR_VIDEO_SIZE + NV_SUPPORTED_VALUES_SUFFIX);
+            if (str == null) return null;
+            StringTokenizer tokenizer1 = new StringTokenizer(str, ",");
+
+            while (tokenizer1.hasMoreElements()) {
+                NvVideoPreviewFps TempVideoPreviewFps = new NvVideoPreviewFps();
+
+                String token1 = tokenizer1.nextToken();
+
+                /** Breaks down the string into individual sensor modes. */
+                StringTokenizer tokenizer2 = new StringTokenizer(token1, ":");
+
+                String token2 = tokenizer2.nextToken();
+                StringTokenizer tokenizer3 = new StringTokenizer(token2, "x");
+                String token3 = tokenizer3.nextToken();
+
+                /** Parses video height, width. */
+                TempVideoPreviewFps.VideoWidth = Integer.parseInt(token3);
+                token3 = tokenizer3.nextToken();
+                TempVideoPreviewFps.VideoHeight = Integer.parseInt(token3);
+
+                token2 = tokenizer2.nextToken();
+                tokenizer3 = new StringTokenizer(token2, "x");
+                token3 = tokenizer3.nextToken();
+
+                /** Parses maximum preview height, width. */
+                TempVideoPreviewFps.MaxPreviewWidth = Integer.parseInt(token3);
+                token3 = tokenizer3.nextToken();
+                TempVideoPreviewFps.MaxPreviewHeight = Integer.parseInt(token3);
+
+                token2 = tokenizer2.nextToken();
+                /* Parses maximum frame rate. */
+                TempVideoPreviewFps.MaxFps = Integer.parseInt(token2);
+
+                VideoPreviewSizeFPS.add(TempVideoPreviewFps);
+            }
+            return VideoPreviewSizeFPS;
+        }
+
+/*@}*/
+
 /** @name Focus Areas
  *
+ * The Focus Areas API manages the focus regions of interest.
+ *
+ * Focus Areas allow an application to guide where the ISP computes the
+ * focus statistics in an image. Two examples of how an application might
+ * use this are touch to focus and focusing on faces. In touch to focus,
+ * the application maps a touch event on a preview image to a change in the
+ * focus windows. To focus on faces, the application converts the face regions
+ * reported by a face detection algorithm into focus areas.
+ *
+ * To simplify the application logic, the sensor's field of view (FOV) is
+ * mapped to a canonical rectangle with coordinates (-1000, -1000) in the upper
+ * left corner to (1000, 1000) in the lower right corner. When digital
+ * zoom settings change, the mapping is updated to ensure that the FOV (and
+ * thus the images available to the application) always map to the canonical
+ * rectangle.
+ *
+ * A list of windows can be expressed as either a string or as an
+ * @c ArrayList of @c NvWindows and can be set and queried in either form.
+ * The getMaxNumFocusAreas() call is provided to query the number of
+ * focus windows supported by the device upon which the code is running.
  */
 /*@{*/
 
@@ -405,7 +806,7 @@ public class NvCamera extends Camera{
 
 /** @name Exposure Areas
  *
- * @note Exposure Modes can be viewed as special use-cases of the exposure
+ * Exposure Modes can be viewed as special use-cases of the exposure
  * areas. Detailed examples are provided in the example code section.
  *
  * - Center: We are currently working out the HAL APIs for programmable
@@ -427,6 +828,13 @@ public class NvCamera extends Camera{
      * coordinates, from -1000 to 1000. The weight parameter can range anywhere
      * from 1 to 1000, and it is used by the driver to weight the @b importance
      * of the regions relative to each other in the exposure calculations.
+     *
+     * The regions can overlap, which may be useful if a smoother AE change is
+     * desired.  The weights are added in the overlap region.
+     * For example, setting areas of
+     *   (-900,-900,900,900,1),(-100,-100,100,100,1)
+     * will configure a large region of weight 1, with a small centered region
+     * of weight 2.
      *
      * When the image is zoomed, the regions will take effect relative to the
      * zoomed field of view. The application can set up to the number of areas
@@ -455,6 +863,13 @@ public class NvCamera extends Camera{
 /*@}*/
 
 /** @name Color Correction
+ *
+ * The Color Correction API provides for application control of a 4x4
+ * color correction matrix (CCM) in the imaging pipeline. An example use of
+ * the color correction API is to provide a color effect like sepia.
+ *
+ * @note The CCM controlled by this API is also the RGB -> YUV
+ * conversion matrix. It should therefore fold in this calculation as well.
  *
  */
 /*@{*/
@@ -519,6 +934,9 @@ public class NvCamera extends Camera{
 
 /** @name Saturation
  *
+ * The Saturation API overrides the saturation value described in
+ * the configuration file, if present. The saturation value is an integer
+ * in the range [-100, 100].
  */
 /*@{*/
 
@@ -542,6 +960,20 @@ public class NvCamera extends Camera{
 
 /** @name Contrast
  *
+ * The Contrast control provides an application with the ability to
+ * bias the calcuation performed by the automatic tone curve calculation.
+ *
+ * The implementation maps strings onto constrast bias values.
+ * The current mapping is from  "lowest", "low", "normal", "high", "highest"
+ * onto biases of -100, -50, 0, 50, 100, though this is subject to change.
+ *
+ * A bias value of:
+ * - 0 indicates no bias--the automatic tone cuve will be used without
+ *    modification.
+ * - -100 indicates maximum contrast reduction on top of the automatic tone
+ *    curve.
+ * - 100 indicates maximum contrast boost on top of the automatic tone curve.
+ *
  */
 /*@{*/
 
@@ -557,7 +989,8 @@ public class NvCamera extends Camera{
 
     /**
      * Gets the current contrast value.
-     */        public String getContrast() {
+     */
+        public String getContrast() {
 
             return get(NV_CONTRAST);
         }
@@ -565,6 +998,8 @@ public class NvCamera extends Camera{
 
 /** @name Edge Enhancement
  *
+ * The Edge Enhancement API enables an application to bias the edge
+ * enhancement value in the range [-100, 100].
  */
 /*@{*/
 
@@ -591,6 +1026,14 @@ public class NvCamera extends Camera{
 
 /** @name Exposure Time
  *
+ * The Exposure Time API constrains the sensor exposure time to
+ * the requested number of microseconds. Setting an exposure time of zero
+ * remove the exposure time constraint.
+ *
+ * Note that the exposure time constraint will be respected, even if AE
+ * is unable to reach a desired exposure. Said another way, if AE reaches
+ * gain control limits, the image will be too bright (at minimum gain)
+ * or too dark (at maximum gain).
  */
 /*@{*/
 
@@ -615,6 +1058,13 @@ public class NvCamera extends Camera{
 
 /** @name ISO
  *
+ * The Picture ISO API constrains the ISO to the selected value.
+ * Setting ISO to "auto" returns to automatic ISO selection.
+ *
+ * @note The exposure time constraint will be respected, even if AE
+ * is unable to reach a desired exposure. Said another way, if AE reaches
+ * exposure control limits, the image will be too bright (at minimum exposure)
+ * or too dark (at maximum exposure).
  */
 /*@{*/
 
@@ -638,6 +1088,18 @@ public class NvCamera extends Camera{
 
 /** @name Focus Position
  *
+ * The focus position can be queried and set.
+ *
+ * The Focus Position API provides access to low-level focuser movement.
+ *
+ * The position units are focus steps, which are normally fall in the
+ * range [0, 1000]. In addition, three special focus positions can be used:
+ * INF1 (far limit), MAC1 (macro limit), and HYPERFOCAL.
+ *
+ * Setting focus position is only effective in certain circumstances.
+ * It is always effective in manual focus mode. Auto Focus (AF) mode is
+ * more complicated: the focus position only takes effect when
+ * continuous auto-focus (CAF) is not enabled and AF has converged.
  */
 /*@{*/
 
@@ -661,11 +1123,11 @@ public class NvCamera extends Camera{
 
 /** @name Auto White Balance and Auto Exposure Lock
  *
- * \c AutoWhiteBalance can be locked, so the colors no longer are adjusted
+ * @c AutoWhiteBalance can be locked, so the colors no longer are adjusted
  * automatically based off the scene. It can be unlocked with the corresponding
  * function.
  *
- * \c AutoExposure can be locked, so the exposure is no longer automatically
+ * @c AutoExposure can be locked, so the exposure is no longer automatically
  * adjusted based off the scene.
  */
 /*@{*/
@@ -700,6 +1162,56 @@ public class NvCamera extends Camera{
         public boolean getAutoExposureLock() {
             String v = get(NV_AUTOEXPOSURE_LOCK);
             return Boolean.valueOf(v);
+        }
+/*@}*/
+
+/** @name Stereo Mode
+ *
+ * Stereo mode must be set before the camera sensor powers on.
+ */
+/*@{*/
+    /**
+     * Sets the current camera stereo mode.
+     *
+     * This method sets the camera stereo mode as specified in the argument.
+     * Like with standard parameter calls, the subsequent call to
+     * setParameters() fails if the given stereo mode is not supported.
+     *
+     * @param stereoMode This string can take any of the values returned by
+     * com.nvidia.NvCamera.NvParameters::getSupportedStereoModes().
+     *
+     */
+        public void setStereoMode(String stereoMode) {
+            set(NV_STEREO_MODE, stereoMode);
+        }
+
+    /**
+     * Gets the current stereo camera mode.
+     *
+     * This method gets the currently-selected stereo mode of the camera.
+     *
+     * @return One of the values returned by
+     * ::com.nvidia.NvCamera.NvParameters::getSupportedStereoModes().
+     */
+        public String getStereoMode() {
+            return get(NV_STEREO_MODE);
+        }
+
+    /**
+     * Gets the current stereo camera mode.
+     *
+     * This method returns all the stereo modes that will be accepted by a
+     * setStereoMode() method call.
+     *
+     * @return List of supported stereo camera modes for the
+     * currenly selected camera. Will be a subset of "(left, right, stereo)".
+     * Mono cameras will have list with only one element "(left)".
+     * @see com.nvidia.NvCamera.NvParameters#setStereoMode(),
+     * com.nvidia.NvCamera.NvParameters#getStereoMode()
+     */
+        public List<String> getSupportedStereoModes() {
+            String str = get(NV_STEREO_MODE + NV_SUPPORTED_VALUES_SUFFIX);
+            return splitCloned(str);
         }
 /*@}*/
 

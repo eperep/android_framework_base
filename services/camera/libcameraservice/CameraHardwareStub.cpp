@@ -364,10 +364,20 @@ status_t CameraHardwareStub::setParameters(const CameraParameters& params)
     return NO_ERROR;
 }
 
+status_t CameraHardwareStub::setCustomParameters(const CameraParameters& params)
+{
+    return setParameters(params);
+}
+
 CameraParameters CameraHardwareStub::getParameters() const
 {
     Mutex::Autolock lock(mLock);
     return mParameters;
+}
+
+CameraParameters CameraHardwareStub::getCustomParameters() const
+{
+    return getParameters();
 }
 
 status_t CameraHardwareStub::sendCommand(int32_t command, int32_t arg1,
@@ -400,6 +410,14 @@ extern "C" int HAL_getNumberOfCameras()
 extern "C" void HAL_getCameraInfo(int cameraId, struct CameraInfo* cameraInfo)
 {
     memcpy(cameraInfo, &sCameraInfo[cameraId], sizeof(CameraInfo));
+}
+
+extern "C" void HAL_getCameraInfoExtended(int cameraId, struct CameraInfoExtended* cameraInfoExtended)
+{
+    // Zero fill entire input structure
+    memset(cameraInfoExtended, 0, sizeof(CameraInfoExtended));
+    // Copy only the base part from default source
+    memcpy(cameraInfoExtended, &sCameraInfo[cameraId], sizeof(CameraInfo));
 }
 
 extern "C" sp<CameraHardwareInterface> HAL_openCameraHardware(int cameraId)

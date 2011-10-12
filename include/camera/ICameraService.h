@@ -32,6 +32,7 @@ public:
     enum {
         GET_NUMBER_OF_CAMERAS = IBinder::FIRST_CALL_TRANSACTION,
         GET_CAMERA_INFO,
+        GET_CAMERA_INFO_EXTENDED,
         CONNECT
     };
 
@@ -41,6 +42,9 @@ public:
     virtual int32_t         getNumberOfCameras() = 0;
     virtual status_t        getCameraInfo(int cameraId,
                                           struct CameraInfo* cameraInfo) = 0;
+    virtual status_t        getCameraInfoExtended(int cameraId,
+                                          struct CameraInfoExtended*
+                                          cameraInfoExtended) = 0;
     virtual sp<ICamera>     connect(const sp<ICameraClient>& cameraClient,
                                     int cameraId) = 0;
 };

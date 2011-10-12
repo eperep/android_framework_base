@@ -55,6 +55,20 @@ public:
         return reply.readInt32();
     }
 
+    // get extended information about a camera
+    virtual status_t getCameraInfoExtended(int cameraId,
+                                   struct CameraInfoExtended* cameraInfoExtended) {
+        Parcel data, reply;
+        data.writeInterfaceToken(ICameraService::getInterfaceDescriptor());
+        data.writeInt32(cameraId);
+        remote()->transact(BnCameraService::GET_CAMERA_INFO_EXTENDED, data, &reply);
+        cameraInfoExtended->facing = reply.readInt32();
+        cameraInfoExtended->orientation = reply.readInt32();
+        cameraInfoExtended->stereoCaps = reply.readInt32();
+        cameraInfoExtended->connection = reply.readInt32();
+        return reply.readInt32();
+    }
+
     // connect to camera service
     virtual sp<ICamera> connect(const sp<ICameraClient>& cameraClient, int cameraId)
     {
@@ -87,6 +101,18 @@ status_t BnCameraService::onTransact(
             status_t result = getCameraInfo(data.readInt32(), &cameraInfo);
             reply->writeInt32(cameraInfo.facing);
             reply->writeInt32(cameraInfo.orientation);
+            reply->writeInt32(result);
+            return NO_ERROR;
+        } break;
+        case GET_CAMERA_INFO_EXTENDED: {
+            CHECK_INTERFACE(ICameraService, data, reply);
+            CameraInfoExtended cameraInfoExtended;
+            memset(&cameraInfoExtended, 0, sizeof(cameraInfoExtended));
+            status_t result = getCameraInfoExtended(data.readInt32(), &cameraInfoExtended);
+            reply->writeInt32(cameraInfoExtended.facing);
+            reply->writeInt32(cameraInfoExtended.orientation);
+            reply->writeInt32(cameraInfoExtended.stereoCaps);
+            reply->writeInt32(cameraInfoExtended.connection);
             reply->writeInt32(result);
             return NO_ERROR;
         } break;
