@@ -2423,13 +2423,6 @@ bool SniffSuper (
                 return true;
             }
         }
-        else if (!memcmp(header, ASF_Header_GUID, 16))
-        {
-            *mimeType = MEDIA_MIMETYPE_CONTAINER_ASF;
-            *confidence = 1.0;
-            LOGV ("asf is identified /////");
-            return true;
-        }
 
         return false;
     }

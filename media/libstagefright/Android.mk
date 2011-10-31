@@ -9,6 +9,7 @@ LOCAL_SRC_FILES:=                         \
         AACWriter.cpp                     \
         AMRExtractor.cpp                  \
         AMRWriter.cpp                     \
+        ASFExtractor.cpp                  \
         AVIExtractor.cpp                  \
         AudioPlayer.cpp                   \
         AudioSource.cpp                   \

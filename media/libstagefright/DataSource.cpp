@@ -15,6 +15,7 @@
  */
 
 #include "include/AMRExtractor.h"
+#include "include/ASFExtractor.h"
 #include "include/AVIExtractor.h"
 #include "include/MP3Extractor.h"
 #include "include/MPEG4Extractor.h"
@@ -121,6 +122,7 @@ void DataSource::RegisterDefaultSniffers() {
         RegisterSniffer(SniffDRM);
     }
     RegisterSniffer(SniffSuper);
+    RegisterSniffer(SniffASF);
 }
 
 // static
