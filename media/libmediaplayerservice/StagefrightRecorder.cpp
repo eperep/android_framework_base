@@ -1341,6 +1341,7 @@ status_t StagefrightRecorder::setupVideoEncoder(
     sp<MetaData> enc_meta = new MetaData;
     enc_meta->setInt32(kKeyBitRate, videoBitRate);
     enc_meta->setInt32(kKeyFrameRate, mFrameRate);
+    enc_meta->setInt32(kKeyTimeLapse, mCaptureTimeLapse);
 
     switch (mVideoEncoder) {
         case VIDEO_ENCODER_H263:

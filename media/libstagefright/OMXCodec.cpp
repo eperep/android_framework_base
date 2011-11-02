@@ -927,13 +927,14 @@ status_t OMXCodec::isColorFormatSupported(
 void OMXCodec::setVideoInputFormat(
         const char *mime, const sp<MetaData>& meta) {
 
-    int32_t width, height, frameRate, bitRate, stride, sliceHeight;
+    int32_t width, height, frameRate, bitRate, stride, sliceHeight, timeLapse=0;
     bool success = meta->findInt32(kKeyWidth, &width);
     success = success && meta->findInt32(kKeyHeight, &height);
     success = success && meta->findInt32(kKeyFrameRate, &frameRate);
     success = success && meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyStride, &stride);
     success = success && meta->findInt32(kKeySliceHeight, &sliceHeight);
+    meta->findInt32(kKeyTimeLapse, &timeLapse);
     CHECK(success);
     CHECK(stride != 0);
 
@@ -1013,6 +1014,33 @@ void OMXCodec::setVideoInputFormat(
             mNode, OMX_IndexParamPortDefinition, &def, sizeof(def));
     CHECK_EQ(err, (status_t)OK);
 
+    if (!strncmp(mComponentName, "OMX.Nvidia.", 11))
+    {
+        OMX_INDEXTYPE index;
+
+        err= mOMX->getExtensionIndex(
+            mNode,
+            "OMX.Nvidia.index.param.timelapse",
+            &index);
+
+        if (err != OK) {
+            LOGW("getExtensionIndex API failed \n");
+        }
+        else
+        {
+            OMX_CONFIG_BOOLEANTYPE nTimeLapse;
+            if(timeLapse)
+                nTimeLapse.bEnabled = OMX_TRUE;
+            else
+                nTimeLapse.bEnabled = OMX_FALSE;
+
+            err = mOMX->setConfig(mNode, index, &nTimeLapse, sizeof(nTimeLapse));
+
+            if (err != OK) {
+                CHECK_EQ(err, (status_t)OK);
+            }
+        }
+    }
     /////////////////// Codec-specific ////////////////////////
     switch (compressionFormat) {
         case OMX_VIDEO_CodingMPEG4:

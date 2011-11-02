@@ -125,6 +125,9 @@ enum {
     kKeyRequiresSecureBuffers = 'secu',  // bool (int32_t)
 
     kKeyNodeId            = 'node',  // int32_t
+
+    // An indication of current mode
+    kKeyTimeLapse         = 'tlps',  // bool (int32_t)
 };
 
 enum {
