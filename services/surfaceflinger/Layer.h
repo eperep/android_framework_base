@@ -75,6 +75,7 @@ public:
     virtual void onRemoved();
     virtual sp<Layer> getLayer() const { return const_cast<Layer*>(this); }
     virtual void setName(const String8& name);
+    virtual void setServerRequestedBufferCount(int count);
 
     // LayerBaseClient interface
     virtual wp<IBinder> getSurfaceTextureBinder() const;

@@ -130,6 +130,10 @@ SurfaceTexture::~SurfaceTexture() {
 }
 
 status_t SurfaceTexture::setBufferCountServerLocked(int bufferCount) {
+    //catch if we are using 2d skia/software on the buffer, if so force double buffering
+    if (mCurrentTextureBuf != 0 &&  mCurrentTextureBuf->getUsage() &(GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK)) {
+        bufferCount = 2;
+    }
     if (bufferCount > NUM_BUFFER_SLOTS)
         return BAD_VALUE;
 
@@ -137,28 +141,30 @@ status_t SurfaceTexture::setBufferCountServerLocked(int bufferCount) {
     if (bufferCount == mBufferCount)
         return OK;
 
-    if (!mClientBufferCount &&
-        bufferCount >= mBufferCount) {
-        // easy, we just have more buffers
-        mBufferCount = bufferCount;
-        mServerBufferCount = bufferCount;
-        mDequeueCondition.signal();
-    } else {
-        // we're here because we're either
-        // - reducing the number of available buffers
-        // - or there is a client-buffer-count in effect
+    //only change the buffer count if the client didn't set a buffercount
+    if(!mClientBufferCount) {
+        if (bufferCount >= mBufferCount) {
+            // easy, we just have more buffers
+            mBufferCount = bufferCount;
+            mServerBufferCount = bufferCount;
+            mDequeueCondition.signal();
+        } else {
+            // we're here because we're either
+            // - reducing the number of available buffers
+            // - or there is a client-buffer-count in effect
 
-        // less than 2 buffers is never allowed
-        if (bufferCount < 2)
-            return BAD_VALUE;
+            // less than 2 buffers is never allowed
+            if (bufferCount < 2)
+                return BAD_VALUE;
 
-        // when there is non client-buffer-count in effect, the client is not
-        // allowed to dequeue more than one buffer at a time,
-        // so the next time they dequeue a buffer, we know that they don't
-        // own one. the actual resizing will happen during the next
-        // dequeueBuffer.
+            // when there is non client-buffer-count in effect, the client is not
+            // allowed to dequeue more than one buffer at a time,
+            // so the next time they dequeue a buffer, we know that they don't
+            // own one. the actual resizing will happen during the next
+            // dequeueBuffer.
 
-        mServerBufferCount = bufferCount;
+            mServerBufferCount = bufferCount;
+        }
     }
     return OK;
 }

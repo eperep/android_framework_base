@@ -986,6 +986,10 @@ void SurfaceFlinger::setupHardwareComposer(Region& dirtyInOut)
                     dirtyInOut.orSelf(layer->visibleRegionScreen);
                 }
                 layer->setOverlay(isOverlay);
+                if (cur[i].hints & HWC_HINT_TRIPLE_BUFFER) {
+                    const sp<LayerBase>& layer(layers[i]);
+                    layer->setServerRequestedBufferCount(3);
+                }
             }
             // don't erase stuff outside the dirty region
             transparent.andSelf(dirtyInOut);

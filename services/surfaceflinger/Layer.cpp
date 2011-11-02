@@ -109,6 +109,11 @@ void Layer::setName(const String8& name) {
     mSurfaceTexture->setName(name);
 }
 
+void Layer::setServerRequestedBufferCount(int count)
+{
+    mSurfaceTexture->setBufferCountServer(count);
+}
+
 sp<ISurface> Layer::createSurface()
 {
     class BSurface : public BnSurface, public LayerCleaner {

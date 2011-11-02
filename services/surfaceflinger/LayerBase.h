@@ -174,7 +174,7 @@ public:
      * correct.
      */
     virtual void unlockPageFlip(const Transform& planeTransform, Region& outDirtyRegion);
-    
+
     /**
      * isOpaque - true if this surface is opaque
      */
@@ -202,8 +202,15 @@ public:
      */
     virtual bool isProtected() const   { return false; }
 
+    /**
+    * setServerRequestedBufferCount - sends a request back to the client indicating
+    * that the server wants to change the buffer count on this layer. Note that this
+    * is really just a hint, the client is not required to honor it.
+    */
+    virtual void setServerRequestedBufferCount(int count) { };
     /** called with the state lock when the surface is removed from the
      *  current list */
+
     virtual void onRemoved() { };
     
     /** always call base class first */
