@@ -122,7 +122,7 @@ OMX_ERRORTYPE SoftG711::internalGetParameter(
             pcmParams->eChannelMapping[1] = OMX_AUDIO_ChannelRF;
 
             pcmParams->nChannels = mNumChannels;
-            pcmParams->nSamplingRate = 8000;
+            pcmParams->nSamplingRate = mSampleRate;
 
             return OMX_ErrorNone;
         }
@@ -149,6 +149,7 @@ OMX_ERRORTYPE SoftG711::internalSetParameter(
             }
 
             mNumChannels = pcmParams->nChannels;
+            mSampleRate = pcmParams->nSamplingRate;
 
             return OMX_ErrorNone;
         }
