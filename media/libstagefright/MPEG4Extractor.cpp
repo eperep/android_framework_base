@@ -686,6 +686,12 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
         }
     }
 
+    if(*offset == 0 && chunk_type == FOURCC('m','o','o','v'))
+    {
+        m_qtmode = 1;
+        LOGI(" QT MODE DECIDED \n");
+    }
+
     if(chunk_type == 0x00000000) {
         if(mLastTrack)
             mLastTrack->TerminatorAtomReached = true;
