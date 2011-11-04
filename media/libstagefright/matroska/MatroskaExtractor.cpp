@@ -97,13 +97,15 @@ struct BlockIterator {
 
     const mkvparser::Block *block() const;
     int64_t blockTimeUs() const;
-
+    int64_t GetNextTime();
 private:
     MatroskaExtractor *mExtractor;
     unsigned long mTrackNum;
 
     const mkvparser::Cluster *mCluster;
+    const mkvparser::Cluster *mNextCluster;
     const mkvparser::BlockEntry *mBlockEntry;
+    const mkvparser::BlockEntry *mNextBlockEntry;
     long mBlockEntryIndex;
 
     void advance_l();
@@ -139,6 +141,7 @@ private:
     Type mType;
     bool mIsAudio;
     BlockIterator mBlockIter;
+    int64_t mAudioFrameDuration;
     size_t mNALSizeLen;  // for type AVC
 
     List<MediaBuffer *> mPendingFrames;
@@ -158,6 +161,7 @@ MatroskaSource::MatroskaSource(
       mTrackIndex(index),
       mType(OTHER),
       mIsAudio(false),
+      mAudioFrameDuration(0),
       mBlockIter(mExtractor.get(),
                  mExtractor->mTracks.itemAt(index).mTrackNum),
       mNALSizeLen(0) {
@@ -213,7 +217,9 @@ BlockIterator::BlockIterator(
     : mExtractor(extractor),
       mTrackNum(trackNum),
       mCluster(NULL),
+      mNextCluster(NULL),
       mBlockEntry(NULL),
+      mNextBlockEntry(NULL),
       mBlockEntryIndex(0) {
     reset();
 }
@@ -225,6 +231,27 @@ bool BlockIterator::eos() const {
 void BlockIterator::advance() {
     Mutex::Autolock autoLock(mExtractor->mLock);
     advance_l();
+}
+
+int64_t BlockIterator::GetNextTime() {
+    Mutex::Autolock autoLock(mExtractor->mLock);
+    mNextBlockEntry = mCluster->GetNext(mBlockEntry);
+    if(mNextBlockEntry != NULL)
+    {
+        return (mNextBlockEntry->GetBlock()->GetTime(mCluster) + 500ll) / 1000ll;
+    }
+    else
+    {
+        mNextCluster = mExtractor->mSegment->GetNext(mCluster);
+
+        if(mNextCluster != NULL)
+            mNextBlockEntry = mNextCluster->GetFirst();
+
+        if(mNextBlockEntry != NULL)
+            return (mNextBlockEntry->GetBlock()->GetTime(mNextCluster) + 500ll) / 1000ll;
+    }
+
+    return 0;
 }
 
 void BlockIterator::advance_l() {
@@ -296,6 +323,8 @@ void BlockIterator::reset() {
 
     mCluster = mExtractor->mSegment->GetFirst();
     mBlockEntry = NULL;
+    mNextBlockEntry = NULL;
+    mNextCluster = NULL;
     mBlockEntryIndex = 0;
 
     do {
@@ -370,12 +399,22 @@ status_t MatroskaSource::readBlock() {
     const mkvparser::Block *block = mBlockIter.block();
 
     int64_t timeUs = mBlockIter.blockTimeUs();
+    long long  TrackNum = block->GetTrackNumber();
 
-    for (int i = 0; i < block->GetFrameCount(); ++i) {
+    enum { VIDEO_TRACK = 1, AUDIO_TRACK = 2 };
+
+    if(mAudioFrameDuration == 0 && TrackNum == AUDIO_TRACK)
+    {
+        int64_t NextBlockTimeUs = mBlockIter.GetNextTime();
+        mAudioFrameDuration = (NextBlockTimeUs-timeUs)/(block->GetFrameCount());
+    }
+
+   for (int i = 0; i < block->GetFrameCount(); ++i) {
         const mkvparser::Block::Frame &frame = block->GetFrame(i);
 
         MediaBuffer *mbuf = new MediaBuffer(frame.len);
         mbuf->meta_data()->setInt64(kKeyTime, timeUs);
+        timeUs +=  mAudioFrameDuration;
         mbuf->meta_data()->setInt32(kKeyIsSyncFrame, block->IsKey());
 
         long n = frame.Read(mExtractor->mReader, (unsigned char *)mbuf->data());
