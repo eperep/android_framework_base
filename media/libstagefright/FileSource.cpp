@@ -127,7 +127,11 @@ status_t FileSource::getSize(off64_t *size) {
     return OK;
 }
 
+uint32_t FileSource::flags() {
+        return kIsLocalDataSource;
+}
 sp<DecryptHandle> FileSource::DrmInitialization() {
+
     if (mDrmManagerClient == NULL) {
         mDrmManagerClient = new DrmManagerClient();
     }

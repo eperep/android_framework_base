@@ -42,6 +42,8 @@ public:
 
     virtual void getDrmInfo(sp<DecryptHandle> &handle, DrmManagerClient **client);
 
+    virtual uint32_t flags();
+
 protected:
     virtual ~FileSource();
 

@@ -40,6 +40,7 @@ public:
         kStreamedFromLocalHost = 2,
         kIsCachingDataSource   = 4,
         kIsHTTPBasedSource     = 8,
+        kIsLocalDataSource     = 16,
     };
 
     static sp<DataSource> CreateFromURI(
