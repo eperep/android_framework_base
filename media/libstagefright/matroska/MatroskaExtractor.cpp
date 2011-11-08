@@ -602,6 +602,8 @@ MatroskaExtractor::MatroskaExtractor(const sp<DataSource> &source)
         ret = mSegment->LoadCluster(pos, len);
         CHECK_EQ(ret, 0);
     } else {
+        ret = mSegment->ParseHeaders();
+        CHECK_EQ(ret, 0);
         ret = mSegment->Load();
     }
 
@@ -892,7 +894,7 @@ sp<MetaData> MatroskaExtractor::getMetaData() {
 
 uint32_t MatroskaExtractor::flags() const {
     uint32_t x = CAN_PAUSE;
-    if (!isLiveStreaming()) {
+    if (!isLiveStreaming() && mSegment->isSeek()) {
         x |= CAN_SEEK_BACKWARD | CAN_SEEK_FORWARD | CAN_SEEK;
     }
 
