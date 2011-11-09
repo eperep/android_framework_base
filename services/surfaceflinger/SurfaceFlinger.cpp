@@ -45,6 +45,8 @@
 #include <pixelflinger/pixelflinger.h>
 #include <GLES/gl.h>
 
+#include <nvcpud/NvCpuClient.h>
+
 #include "clz.h"
 #include "GLExtensions.h"
 #include "DdmConnection.h"
@@ -466,6 +468,13 @@ bool SurfaceFlinger::threadLoop()
         if (mOrientationChanged) {
             mOrientationChanged = false;
             hw.setOrientation(mCurrentState.orientation);
+
+            // Poke CPU to boost cpu frequency on rotation
+            if (mCurrentState.orientation != mCurrentState.prevOrientation) {
+                NvCpuClient cpuClient;
+                cpuClient.pokeCPU(systemTime());
+                mCurrentState.prevOrientation = mCurrentState.orientation;
+            }
         }
 
         logger.log(GraphicLog::SF_REPAINT, index);

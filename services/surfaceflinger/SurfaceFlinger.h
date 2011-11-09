@@ -269,10 +269,12 @@ private:
     struct State {
         State() {
             orientation = ISurfaceComposer::eOrientationDefault;
+            prevOrientation = ISurfaceComposer::eOrientationDefault;
             freezeDisplay = 0;
         }
         LayerVector     layersSortedByZ;
         uint8_t         orientation;
+        uint8_t         prevOrientation;
         uint8_t         orientationFlags;
         uint8_t         freezeDisplay;
     };
