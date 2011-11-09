@@ -667,7 +667,8 @@ status_t SampleTable::findSyncSampleNear(
 
         err = mSampleIterator->seekTo(y);
         if (err != OK) {
-            return err;
+            *sample_index = x++;
+            return OK;
         }
 
         uint32_t y_time = mSampleIterator->getSampleTime();
