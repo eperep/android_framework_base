@@ -293,7 +293,12 @@ status_t SampleIterator::findSampleTime(
 
     while (sampleIndex >= mTTSSampleIndex + mTTSCount) {
         if (mTimeToSampleIndex == mTable->mTimeToSampleCount) {
-            return ERROR_OUT_OF_RANGE;
+            if (sampleIndex == mTTSSampleIndex + mTTSCount) {
+                *time = mTTSSampleTime + mTTSDuration * (sampleIndex - mTTSSampleIndex);
+                *time += mTable->getCompositionTimeOffset(sampleIndex);
+            } else {
+                return ERROR_OUT_OF_RANGE;
+            }
         }
 
         mTTSSampleIndex += mTTSCount;
