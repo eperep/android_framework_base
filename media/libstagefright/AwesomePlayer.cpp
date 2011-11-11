@@ -1971,12 +1971,15 @@ void AwesomePlayer::onVideoEvent() {
         if (!noAvsync)
 #endif
         {
-            if (latenessUs > 500000ll
-                && mRTSPController == NULL
-                && mAudioPlayer != NULL
-                && mAudioPlayer->getMediaTimeMapping(
-                &realTimeUs, &mediaTimeUs)) {
-                LOGI("we're much too late (%.2f secs), video skipping ahead",latenessUs / 1E6);
+            if ((mExtractorFlags & MediaExtractor::CAN_SEEK)
+                    && latenessUs > 500000ll
+                    && mRTSPController == NULL
+                    && mAudioPlayer != NULL
+                    && mAudioPlayer->getMediaTimeMapping(
+                        &realTimeUs, &mediaTimeUs)) {
+                LOGI("we're much too late (%.2f secs), video skipping ahead",
+                     latenessUs / 1E6);
+
 #ifdef PROFILING
                 numLateSeek += 1;
 #endif

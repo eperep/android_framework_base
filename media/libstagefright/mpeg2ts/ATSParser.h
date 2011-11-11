@@ -64,6 +64,10 @@ struct ATSParser : public RefBase {
 
     bool PTSTimeDeltaEstablished();
 
+    void SetTsPacketLength(ssize_t len);
+
+    ssize_t GetTsPacketLength();
+
 protected:
     virtual ~ATSParser();
 
@@ -79,6 +83,7 @@ private:
         STREAMTYPE_H264                 = 0x1b,
     };
 
+    ssize_t tsPacketLen;
     struct Program;
     struct Stream;
 

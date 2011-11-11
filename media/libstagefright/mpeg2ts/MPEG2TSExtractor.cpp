@@ -35,6 +35,7 @@
 
 namespace android {
 
+static const size_t kMaxTSPacketSize = 192;
 static const size_t kTSPacketSize = 188;
 
 struct MPEG2TSSource : public MediaSource {
@@ -167,6 +168,26 @@ void MPEG2TSExtractor::init() {
     bool haveVideo = false;
     int numPacketsParsed = 0;
 
+    if ((mParser->GetTsPacketLength() != kTSPacketSize ||  mParser->GetTsPacketLength() != kMaxTSPacketSize))
+    {
+        LOGV("Setting the TS Packet Size");
+        mParser->SetTsPacketLength(kTSPacketSize);
+        char header[5];
+        if (mDataSource->readAt( 0,  header, 5) == 5)
+        //Check if it is m2ts or normal ts
+        {
+             if (*header == 0x47)
+             {
+                 mParser->SetTsPacketLength(kTSPacketSize);
+             }
+             else if (*(header + 4) == 0x47)
+             {
+                 mParser->SetTsPacketLength(kMaxTSPacketSize);
+             }
+        }
+        LOGV("Set the TS packet size as %d", mParser->GetTsPacketLength());
+    }
+
     while (feedMore() == OK) {
         ATSParser::SourceType type;
         if (haveAudio && haveVideo) {
@@ -194,7 +215,7 @@ void MPEG2TSExtractor::init() {
             }
         }
 
-        if (++numPacketsParsed > 10000) {
+        if (++numPacketsParsed > 25000) {
             break;
         }
     }
@@ -205,10 +226,10 @@ void MPEG2TSExtractor::init() {
 status_t MPEG2TSExtractor::feedMore() {
     Mutex::Autolock autoLock(mLock);
 
-    uint8_t packet[kTSPacketSize];
-    ssize_t n = mDataSource->readAt(mOffset, packet, kTSPacketSize);
+    uint8_t packet[kMaxTSPacketSize];
+    ssize_t n = mDataSource->readAt(mOffset, packet, mParser->GetTsPacketLength());
 
-    if (n < (ssize_t)kTSPacketSize) {
+    if (n < mParser->GetTsPacketLength()) {
         return (n < 0) ? (status_t)n : ERROR_END_OF_STREAM;
     }
 
@@ -249,11 +270,24 @@ uint32_t MPEG2TSExtractor::flags() const {
 bool SniffMPEG2TS(
         const sp<DataSource> &source, String8 *mimeType, float *confidence,
         sp<AMessage> *) {
+    bool success = true;
+    size_t tspacketlen = kTSPacketSize;
     for (int i = 0; i < 5; ++i) {
-        char header;
-        if (source->readAt(kTSPacketSize * i, &header, 1) != 1
-                || header != 0x47) {
-            return false;
+        char header[5];
+        //Check if it is m2ts or normal ts
+        if (source->readAt(tspacketlen * i, header, 5) == 5) {
+            if(*header == 0x47) {
+                 LOGV("Normal TS content keeping kTSPacketSize as %d", tspacketlen);
+                 success = true;
+            } else if(*(header + 4) == 0x47) {
+                 tspacketlen = kMaxTSPacketSize;
+                 LOGV("M2TS Blųe Ray Content keeping kTSPacketSize as %d", tspacketlen);
+                 success = true;
+            } else {
+                LOGV("Unrecognised TS Content");
+                success = false;
+                return success;
+            }
         }
     }
 

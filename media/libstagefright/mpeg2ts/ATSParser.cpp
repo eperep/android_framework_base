@@ -41,7 +41,6 @@ namespace android {
 #define MY_LOGV(x, y) \
     do { unsigned tmp = y; LOGV(x, tmp); } while (0)
 
-static const size_t kTSPacketSize = 188;
 
 struct ATSParser::Program : public RefBase {
     Program(ATSParser *parser, unsigned programNumber, unsigned programMapPID);
@@ -794,15 +793,28 @@ sp<MediaSource> ATSParser::Stream::getSource(SourceType type) {
 
 ATSParser::ATSParser(uint32_t flags)
     : mFlags(flags) {
+   tsPacketLen = -1;
 }
 
 ATSParser::~ATSParser() {
 }
 
-status_t ATSParser::feedTSPacket(const void *data, size_t size) {
-    CHECK_EQ(size, kTSPacketSize);
+void ATSParser::SetTsPacketLength(ssize_t len) {
+    tsPacketLen = len;
+}
 
-    ABitReader br((const uint8_t *)data, kTSPacketSize);
+ssize_t ATSParser::GetTsPacketLength() {
+    return tsPacketLen;
+}
+
+status_t ATSParser::feedTSPacket(const void *data, size_t size) {
+    CHECK_EQ(size, GetTsPacketLength());
+
+    ABitReader br((const uint8_t *)data, GetTsPacketLength());
+    if (GetTsPacketLength() == 192) {
+        LOGV("Blue Ray/M2TS content");
+        br.skipBits(32);
+    }
     return parseTS(&br);
 }
 
