@@ -599,6 +599,26 @@ public class WallpaperManager {
      */
     public void suggestDesiredDimensions(int minimumWidth, int minimumHeight) {
         try {
+            /**
+             * HACK to workaround NVIDIA bug 814135
+             *
+             * The framework makes no attempt to limit the window size
+             * to the maximum texture size, which on T20 is 2k.  Any
+             * window larger than this cannot be composited.
+             *
+             * Until Google provides a better fix, hard code a 2k
+             * limit here.
+             */
+            if (minimumWidth > 2048) {
+                float scale = (float) 2048 / (float)minimumWidth;
+                minimumWidth = 2048;
+                minimumHeight = (int) ((float)minimumHeight * scale);
+            }
+            if (minimumHeight > 2048) {
+                float scale = (float) 2048 / (float)minimumHeight;
+                minimumHeight = 2048;
+                minimumWidth = (int) ((float)minimumWidth * scale);
+            }
             sGlobals.mService.setDimensionHints(minimumWidth, minimumHeight);
         } catch (RemoteException e) {
             // Ignore
