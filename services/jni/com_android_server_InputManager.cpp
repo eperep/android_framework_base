@@ -45,9 +45,13 @@
 #include <android_view_PointerIcon.h>
 #include <android/graphics/GraphicsJNI.h>
 
+#include <nvcpud/NvCpuClient.h>
+
 #include "com_android_server_PowerManagerService.h"
 #include "com_android_server_InputApplicationHandle.h"
 #include "com_android_server_InputWindowHandle.h"
+
+#include <binder/IServiceManager.h>
 
 namespace android {
 
@@ -264,6 +268,7 @@ private:
     static inline JNIEnv* jniEnv() {
         return AndroidRuntime::getJNIEnv();
     }
+    NvCpuClient mCpuClient;
 };
 
 
@@ -793,6 +798,8 @@ void NativeInputManager::interceptKeyBeforeQueueing(const KeyEvent* keyEvent,
     }
 }
 
+
+
 void NativeInputManager::interceptMotionBeforeQueueing(nsecs_t when, uint32_t& policyFlags) {
     // Policy:
     // - Ignore untrusted events and pass them along.
@@ -806,6 +813,9 @@ void NativeInputManager::interceptMotionBeforeQueueing(nsecs_t when, uint32_t& p
             if (!isScreenBright()) {
                 policyFlags |= POLICY_FLAG_BRIGHT_HERE;
             }
+
+            this->mCpuClient.pokeCPU(when);
+
         } else {
             JNIEnv* env = jniEnv();
             jint wmActions = env->CallIntMethod(mCallbacksObj,

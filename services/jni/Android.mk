@@ -31,10 +31,12 @@ LOCAL_SHARED_LIBRARIES := \
     libnativehelper \
     libsystem_server \
     libutils \
+    libbinder \
     libui \
     libinput \
     libskia \
     libgui \
+    libnvcpud_client \
     libusbhost
 
 ifeq ($(WITH_MALLOC_LEAK_CHECK),true)
