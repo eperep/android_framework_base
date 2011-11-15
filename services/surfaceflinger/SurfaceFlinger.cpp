@@ -99,6 +99,7 @@ SurfaceFlinger::SurfaceFlinger()
         mDebugInTransaction(0),
         mLastTransactionTime(0),
         mBootFinished(false),
+        mOrientationChanged(false),
         mConsoleSignals(0),
         mSecureFrameBuffer(0)
 {
@@ -462,6 +463,10 @@ bool SurfaceFlinger::threadLoop()
 
         const int index = hw.getCurrentBufferIndex();
         GraphicLog& logger(GraphicLog::getInstance());
+        if (mOrientationChanged) {
+            mOrientationChanged = false;
+            hw.setOrientation(mCurrentState.orientation);
+        }
 
         logger.log(GraphicLog::SF_REPAINT, index);
         handleRepaint();
@@ -577,6 +582,7 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
             // Currently unused: const uint32_t flags = mCurrentState.orientationFlags;
             GraphicPlane& plane(graphicPlane(dpy));
             plane.setOrientation(orientation);
+            mOrientationChanged = true;
 
             // update the shared control block
             const DisplayHardware& hw(plane.displayHardware());

@@ -61,6 +61,7 @@ public:
     // Flip the front and back buffers if the back buffer is "dirty".  Might
     // be instantaneous, might involve copying the frame buffer around.
     void flip(const Region& dirty) const;
+    void setOrientation(int orientation) const;
 
     float       getDpiX() const;
     float       getDpiY() const;

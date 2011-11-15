@@ -408,6 +408,7 @@ private:
                 volatile nsecs_t            mDebugInTransaction;
                 nsecs_t                     mLastTransactionTime;
                 bool                        mBootFinished;
+                bool                        mOrientationChanged;
 
                 // these are thread safe
     mutable     Barrier                     mReadyToRunBarrier;

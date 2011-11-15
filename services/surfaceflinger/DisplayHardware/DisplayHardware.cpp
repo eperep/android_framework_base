@@ -393,6 +393,23 @@ void DisplayHardware::flip(const Region& dirty) const
     //glClear(GL_COLOR_BUFFER_BIT);
 }
 
+void DisplayHardware::setOrientation(int orientation) const
+{
+    framebuffer_device_t *fbDev = (framebuffer_device_t *)mNativeWindow->getDevice();
+    int rotation = 0;
+
+    if (fbDev && fbDev->setRotation) {
+        switch (orientation) {
+            case ISurfaceComposer::eOrientationDefault: rotation = 0; break;
+            case ISurfaceComposer::eOrientation90: rotation = 90; break;
+            case ISurfaceComposer::eOrientation180: rotation = 180; break;
+            case ISurfaceComposer::eOrientation270: rotation = 270; break;
+            default: return;
+        }
+        fbDev->setRotation(fbDev, rotation);
+    }
+}
+
 uint32_t DisplayHardware::getFlags() const
 {
     return mFlags;
