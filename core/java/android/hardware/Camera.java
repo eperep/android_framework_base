@@ -281,8 +281,10 @@ public class Camera {
         }
         return null;
     }
-
-    Camera(int cameraId) {
+    /**
+     * @hide
+     */
+    protected Camera(int cameraId) {
         mShutterCallback = null;
         mRawImageCallback = null;
         mJpegCallback = null;

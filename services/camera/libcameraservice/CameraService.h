@@ -23,7 +23,7 @@
 #include <hardware/camera.h>
 
 /* This needs to be increased if we can have more cameras */
-#define MAX_CAMERAS 2
+#define MAX_CAMERAS 3
 
 namespace android {
 
