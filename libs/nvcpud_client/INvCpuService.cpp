@@ -34,10 +34,12 @@ public:
         : BpInterface<INvCpuService>(impl)
     { }
 
-    virtual status_t pokeCPU()
+    virtual status_t pokeCPU(NvCpuBoostStrength strength, nsecs_t timeoutNs)
     {
         Parcel data, reply;
         data.writeInterfaceToken(INvCpuService::getInterfaceDescriptor());
+        data.writeInt32(strength);
+        data.writeInt64(timeoutNs);
         return remote()->transact(BnNvCpuService::POKE_CPU, data, &reply, IBinder::FLAG_ONEWAY);
     }
 };
@@ -50,7 +52,7 @@ status_t BnNvCpuService::onTransact(
     switch(code) {
         case POKE_CPU: {
             CHECK_INTERFACE(INvCpuService, data, reply);
-            status_t res = pokeCPU();
+            status_t res = pokeCPU((NvCpuBoostStrength)data.readInt32(), (nsecs_t)data.readInt64());
             reply->writeInt32(res);
         } break;
         default:

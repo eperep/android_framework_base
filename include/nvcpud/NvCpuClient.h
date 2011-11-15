@@ -27,8 +27,7 @@ namespace android {
 class NvCpuClient {
 public:
     NvCpuClient();
-    //Time argument is current time, not a timeout
-    void pokeCPU(nsecs_t when);
+    void pokeCPU(NvCpuBoostStrength strength, nsecs_t timeoutNs, nsecs_t now);
 private:
     int failedConnectionAttempts;
     nsecs_t lastConnectionAttempt;

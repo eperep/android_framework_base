@@ -27,6 +27,17 @@
 
 namespace android {
 
+enum NvCpuBoostStrength {
+    NVCPU_BOOST_STRENGTH_LOWEST = 0,
+    NVCPU_BOOST_STRENGTH_LOW,
+    NVCPU_BOOST_STRENGTH_MEDIUM_LOW,
+    NVCPU_BOOST_STRENGTH_MEDIUM,
+    NVCPU_BOOST_STRENGTH_MEDIUM_HIGH,
+    NVCPU_BOOST_STRENGTH_HIGH,
+    NVCPU_BOOST_STRENGTH_HIGHEST,
+    NVCPU_BOOST_STRENGTH_COUNT
+};
+
 class NvCpuService;
 
 class INvCpuService : public IInterface
@@ -36,7 +47,7 @@ DECLARE_META_INTERFACE(NvCpuService) ;
 
     //Will time out on it's own
     //In case you crash/forget
-    virtual status_t pokeCPU() = 0;
+    virtual status_t pokeCPU(NvCpuBoostStrength strength, nsecs_t timeoutNs) = 0;
 };
 
 class BnNvCpuService : public BnInterface<INvCpuService>

@@ -75,14 +75,14 @@ void NvCpuClient::checkAndTryReconnect(nsecs_t now) {
     }
 }
 
-void NvCpuClient::pokeCPU(nsecs_t now) {
+void NvCpuClient::pokeCPU(NvCpuBoostStrength strength, nsecs_t timeoutNs, nsecs_t now) {
     if (now - lastPoke < MINIMUM_POKE_WAIT_NS)
         return;
     lastPoke = now;
     checkAndTryReconnect(now);
     if (mInterface == 0)
         return;
-    status_t res = mInterface->pokeCPU();
+    status_t res = mInterface->pokeCPU(strength, timeoutNs);
     if (res != NO_ERROR)
         breakConnection();
 }

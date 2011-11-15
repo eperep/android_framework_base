@@ -472,7 +472,7 @@ bool SurfaceFlinger::threadLoop()
             // Poke CPU to boost cpu frequency on rotation
             if (mCurrentState.orientation != mCurrentState.prevOrientation) {
                 NvCpuClient cpuClient;
-                cpuClient.pokeCPU(systemTime());
+                cpuClient.pokeCPU(NVCPU_BOOST_STRENGTH_HIGH, ms2ns(3000), systemTime());
                 mCurrentState.prevOrientation = mCurrentState.orientation;
             }
         }

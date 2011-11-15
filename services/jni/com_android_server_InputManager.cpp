@@ -814,7 +814,7 @@ void NativeInputManager::interceptMotionBeforeQueueing(nsecs_t when, uint32_t& p
                 policyFlags |= POLICY_FLAG_BRIGHT_HERE;
             }
 
-            this->mCpuClient.pokeCPU(when);
+            this->mCpuClient.pokeCPU(NVCPU_BOOST_STRENGTH_MEDIUM, ms2ns(500), when);
 
         } else {
             JNIEnv* env = jniEnv();
