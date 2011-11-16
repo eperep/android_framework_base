@@ -2251,9 +2251,16 @@ int64_t OMXCodec::retrieveDecodingTimeUs(bool isCodecSpecific) {
 }
 
 void OMXCodec::on_message(const omx_message &msg) {
+    bool bOwnBuffer = false;
     if (mState == ERROR) {
         LOGW("Dropping OMX message - we're in ERROR state.");
-        return;
+        if(msg.type == omx_message::EMPTY_BUFFER_DONE ||
+           msg.type == omx_message::FILL_BUFFER_DONE) {
+            //Make sure we count the returned buffer as owned by us
+            bOwnBuffer = true;
+        } else {
+            return;
+        }
     }
 
     switch (msg.type) {
@@ -2287,6 +2294,8 @@ void OMXCodec::on_message(const omx_message &msg) {
             BufferInfo* info = &buffers->editItemAt(i);
             info->mStatus = OWNED_BY_US;
 
+            if (bOwnBuffer)
+                return;
             // Buffer could not be released until empty buffer done is called.
             if (info->mMediaBuffer != NULL) {
                 if (mIsEncoder &&
@@ -2346,6 +2355,8 @@ void OMXCodec::on_message(const omx_message &msg) {
 
             info->mStatus = OWNED_BY_US;
 
+            if (bOwnBuffer)
+                return;
             if (mPortStatus[kPortIndexOutput] == DISABLING) {
                 CODEC_LOGV("Port is disabled, freeing buffer %p", buffer);
 
