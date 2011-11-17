@@ -47,8 +47,9 @@ IccIoResult {
      * (the fun stuff is absent in 51.011)
      */
     public boolean success() {
-        return sw1 == 0x90 || sw1 == 0x91 || sw1 == 0x9e || sw1 == 0x9f;
+        return sw1 == 0x90 || sw1 == 0x91 || sw1 == 0x92 || sw1 == 0x9e || sw1 == 0x9f;
     }
+
 
     /**
      * Returns exception on error or null if success
@@ -63,8 +64,20 @@ IccIoResult {
                 } else {
                     return new IccFileNotFound();
                 }
+            case 0x69:
+                if(sw2 == 0x81) {
+                    return new IccFileTypeMismatch();
+                }
+                break;
+            case 0x6A:
+                if((sw2 == 0x82) || (sw2 == 0x83)) {
+                    return new IccFileNotFound();
+                }
+                break;
             default:
-                return new IccException("sw1:" + sw1 + " sw2:" + sw2);
+                break;
         }
+       return new IccException("sw1:" + sw1 + " sw2:" + sw2);
+
     }
 }

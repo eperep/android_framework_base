@@ -71,6 +71,23 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
     static protected final int RESPONSE_DATA_STRUCTURE = 13;
     static protected final int RESPONSE_DATA_RECORD_LENGTH = 14;
 
+    // from TS 102.221 11.1.1.4.3
+    static protected final int RESPONSE_DATA_USIM_FCP_TAG = 0;
+    static protected final int RESPONSE_DATA_USIM_FCP_LEN = 1;
+    static protected final int RESPONSE_DATA_USIM_FILE_DESC_TAG = 2;
+    static protected final int RESPONSE_DATA_USIM_FILE_DESC_LEN = 3;
+    static protected final int RESPONSE_DATA_USIM_FILE_DESC_BYTE = 4;
+    static protected final int RESPONSE_DATA_USIM_RECORD_LEN_0 = 6;
+    static protected final int RESPONSE_DATA_USIM_RECORD_LEN_1 = 7;
+    static protected final int RESPONSE_DATA_USIM_RECORD_NUMBER = 8;
+    static protected final int RESPONSE_DATA_USIM_FILE_SIZE_OFFSET_0 = 2;
+    static protected final int RESPONSE_DATA_USIM_FILE_SIZE_OFFSET_1 = 3;
+    static protected final byte USIM_FCP_TEMPLATE_TAG = (byte)0x62;
+    static protected final byte USIM_FILE_DESCRIPTOR_SHAREABLE_BIT = (byte)0x40;
+    static protected final byte USIM_FILE_DESCRIPTOR_TAG = (byte)0x82;
+    static protected final byte USIM_FILE_SIZE_TAG = (byte)0x80;
+    static protected final byte USIM_EF_TYPE_LINEAR_FIXED = (byte)0x02;
+    static protected final byte USIM_EF_TYPE_TRANSPARENT = (byte)0x01;
 
     //***** Events
 
@@ -375,21 +392,35 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
                 data = result.payload;
                 fileid = lc.efid;
                 recordNum = lc.recordNum;
+                if(USIM_FCP_TEMPLATE_TAG == data[RESPONSE_DATA_USIM_FCP_TAG]) { /* USIM */
+                    if(data[RESPONSE_DATA_USIM_FILE_DESC_TAG] != USIM_FILE_DESCRIPTOR_TAG) {
+                        throw new IccFileTypeMismatch();
+                    }
+                    if ((data[RESPONSE_DATA_USIM_FILE_DESC_BYTE] & ~USIM_FILE_DESCRIPTOR_SHAREABLE_BIT) != USIM_EF_TYPE_LINEAR_FIXED) {
+                        throw new IccFileTypeMismatch();
+                    }
 
-                if (TYPE_EF != data[RESPONSE_DATA_FILE_TYPE]) {
-                    throw new IccFileTypeMismatch();
+                    lc.recordSize  = ((data[RESPONSE_DATA_USIM_RECORD_LEN_0] & 0xff) << 8)
+                           + (data[RESPONSE_DATA_USIM_RECORD_LEN_1] & 0xff);
+
+                    lc.countRecords = (data[RESPONSE_DATA_USIM_RECORD_NUMBER] & 0xff);
                 }
+                else {  /* SIM */
+                    if (TYPE_EF != data[RESPONSE_DATA_FILE_TYPE]) {
+                        throw new IccFileTypeMismatch();
+                    }
 
-                if (EF_TYPE_LINEAR_FIXED != data[RESPONSE_DATA_STRUCTURE]) {
-                    throw new IccFileTypeMismatch();
+                    if (EF_TYPE_LINEAR_FIXED != data[RESPONSE_DATA_STRUCTURE]) {
+                        throw new IccFileTypeMismatch();
+                    }
+
+                    lc.recordSize = data[RESPONSE_DATA_RECORD_LENGTH] & 0xFF;
+
+                    size = ((data[RESPONSE_DATA_FILE_SIZE_1] & 0xff) << 8)
+                           + (data[RESPONSE_DATA_FILE_SIZE_2] & 0xff);
+
+                    lc.countRecords = size / lc.recordSize;
                 }
-
-                lc.recordSize = data[RESPONSE_DATA_RECORD_LENGTH] & 0xFF;
-
-                size = ((data[RESPONSE_DATA_FILE_SIZE_1] & 0xff) << 8)
-                       + (data[RESPONSE_DATA_FILE_SIZE_2] & 0xff);
-
-                lc.countRecords = size / lc.recordSize;
 
                  if (lc.loadAll) {
                      lc.results = new ArrayList<byte[]>(lc.countRecords);
@@ -422,16 +453,41 @@ public abstract class IccFileHandler extends Handler implements IccConstants {
 
                 fileid = msg.arg1;
 
-                if (TYPE_EF != data[RESPONSE_DATA_FILE_TYPE]) {
-                    throw new IccFileTypeMismatch();
+                if(USIM_FCP_TEMPLATE_TAG == data[RESPONSE_DATA_USIM_FCP_TAG]) { /* USIM */
+                    int index = RESPONSE_DATA_USIM_FILE_DESC_TAG;
+                    if(data[RESPONSE_DATA_USIM_FILE_DESC_TAG] != USIM_FILE_DESCRIPTOR_TAG) {
+                        throw new IccFileTypeMismatch();
+                    }
+                    if ((data[RESPONSE_DATA_USIM_FILE_DESC_BYTE] & ~USIM_FILE_DESCRIPTOR_SHAREABLE_BIT) != USIM_EF_TYPE_TRANSPARENT) {
+                        throw new IccFileTypeMismatch();
+                    }
+                    while((data[index]!= USIM_FILE_SIZE_TAG)  && (index<data[RESPONSE_DATA_USIM_FCP_LEN]) )
+                    {
+                        index += data[index+1]+2;
+                    }
+                    if(data[index]== USIM_FILE_SIZE_TAG)
+                    {
+                        size = ((data[index+RESPONSE_DATA_USIM_FILE_SIZE_OFFSET_0] & 0xff) << 8)
+                               + (data[index+RESPONSE_DATA_USIM_FILE_SIZE_OFFSET_1] & 0xff);     
+                    }
+                    else
+                    {
+                        throw new IccFileTypeMismatch();
+                    }
                 }
+                else
+                {
+                    if (TYPE_EF != data[RESPONSE_DATA_FILE_TYPE]) {
+                        throw new IccFileTypeMismatch();
+                     }
+  
+                    if (EF_TYPE_TRANSPARENT != data[RESPONSE_DATA_STRUCTURE]) {
+                        throw new IccFileTypeMismatch();
+                    }
 
-                if (EF_TYPE_TRANSPARENT != data[RESPONSE_DATA_STRUCTURE]) {
-                    throw new IccFileTypeMismatch();
+                    size = ((data[RESPONSE_DATA_FILE_SIZE_1] & 0xff) << 8)
+                           + (data[RESPONSE_DATA_FILE_SIZE_2] & 0xff);
                 }
-
-                size = ((data[RESPONSE_DATA_FILE_SIZE_1] & 0xff) << 8)
-                       + (data[RESPONSE_DATA_FILE_SIZE_2] & 0xff);
 
                 phone.mCM.iccIO(COMMAND_READ_BINARY, fileid, getEFPath(fileid),
                                 0, 0, size, null, null,
