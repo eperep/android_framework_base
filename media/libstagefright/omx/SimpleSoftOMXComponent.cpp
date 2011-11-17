@@ -419,6 +419,11 @@ void SimpleSoftOMXComponent::onSendCommand(
 void SimpleSoftOMXComponent::onChangeState(OMX_STATETYPE state) {
     // We shouldn't be in a state transition already.
     CHECK_EQ((int)mState, (int)mTargetState);
+    if (mState == state)
+    {
+        notify(OMX_EventCmdComplete, OMX_CommandStateSet, mState, NULL);
+        return;
+    }
 
     switch (mState) {
         case OMX_StateLoaded:
