@@ -22,6 +22,7 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import android.util.Log;
 
 /**
  * BitmapRegionDecoder can be used to decode a rectangle region from an image.
@@ -37,6 +38,7 @@ public final class BitmapRegionDecoder {
     private int mNativeBitmapRegionDecoder;
     private boolean mRecycled;
 
+    private static final String TAG = "BitmapRegionDecoder";
     /**
      * Create a BitmapRegionDecoder from the specified byte array.
      * Currently only the JPEG and PNG formats are supported.
@@ -183,8 +185,26 @@ public final class BitmapRegionDecoder {
         if (rect.left < 0 || rect.top < 0 || rect.right > getWidth()
                 || rect.bottom > getHeight())
             throw new IllegalArgumentException("rectangle is not inside the image");
-        return nativeDecodeRegion(mNativeBitmapRegionDecoder, rect.left, rect.top,
+
+        Bitmap result = null;
+
+        // Check if bitmap was passed in as a BitmapFactory option. If yes, then we'd like to re-use it.
+        if(options.inBitmap != null) {
+            // Make sure the bitmap is atleast as big as the rectangle that is to be decoded.
+            if( ( (rect.right-rect.left) > (options.inBitmap.getWidth()*options.inSampleSize) ) ||
+              ( (rect.bottom-rect.top) > (options.inBitmap.getHeight()*options.inSampleSize) ) ) {
+                options.inBitmap = null;
+            }
+        }
+
+        try {
+            result = nativeDecodeRegion(mNativeBitmapRegionDecoder, rect.left, rect.top,
                 rect.right - rect.left, rect.bottom - rect.top, options);
+        } catch (IllegalArgumentException ex) {
+            // Too bad..what are you going to do now!
+            Log.w(TAG, "Unable to decode tile: ", ex);
+        }
+        return result;
     }
 
     /** Returns the original image's width */
