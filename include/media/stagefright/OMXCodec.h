@@ -224,6 +224,7 @@ private:
              const sp<MediaSource> &source,
              const sp<ANativeWindow> &nativeWindow);
 
+    status_t parseAvccCodecConfig(const void *data, size_t size);
     void addCodecSpecificData(const void *data, size_t size);
     void clearCodecSpecificData();
 

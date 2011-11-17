@@ -514,6 +514,83 @@ sp<MediaSource> OMXCodec::Create(
     return NULL;
 }
 
+status_t OMXCodec::parseAvccCodecConfig(const void *data, size_t size)
+{
+    const uint8_t *ptr = (const uint8_t *)data;
+    CHECK(size >= 7);
+    CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
+    uint8_t profile = ptr[1];
+    uint8_t level = ptr[3];
+
+    // There is decodable content out there that fails the following
+    // assertion, let's be lenient for now...
+    // CHECK((ptr[4] >> 2) == 0x3f);  // reserved
+
+    size_t lengthSize = 1 + (ptr[4] & 3);
+
+    // commented out check below as H264_QVGA_500_NO_AUDIO.3gp
+    // violates it...
+    // CHECK((ptr[5] >> 5) == 7);  // reserved
+
+    size_t numSeqParameterSets = ptr[5] & 31;
+
+    ptr += 6;
+    size -= 6;
+
+    for (size_t i = 0; i < numSeqParameterSets; ++i) {
+        CHECK(size >= 2);
+        size_t length = U16_AT(ptr);
+
+        ptr += 2;
+        size -= 2;
+
+        CHECK(size >= length);
+
+        addCodecSpecificData(ptr, length);
+
+        ptr += length;
+        size -= length;
+    }
+
+    CHECK(size >= 1);
+    size_t numPictureParameterSets = *ptr;
+    ++ptr;
+    --size;
+
+    for (size_t i = 0; i < numPictureParameterSets; ++i) {
+        CHECK(size >= 2);
+        size_t length = U16_AT(ptr);
+
+        ptr += 2;
+        size -= 2;
+
+        CHECK(size >= length);
+
+        addCodecSpecificData(ptr, length);
+
+        ptr += length;
+        size -= length;
+    }
+
+    CODEC_LOGV(
+            "AVC profile = %d (%s), level = %d",
+            (int)profile, AVCProfileToString(profile), level);
+    mOMXProfile = profile;
+
+    if (!strcmp(mComponentName, "OMX.TI.Video.Decoder")
+        && (profile != kAVCProfileBaseline || level > 30)) {
+        // This stream exceeds the decoder's capabilities. The decoder
+        // does not handle this gracefully and would clobber the heap
+        // and wreak havoc instead...
+
+        LOGE("Profile and/or level exceed the decoder's capabilities.");
+        return ERROR_UNSUPPORTED;
+    }
+
+    return OK;
+}
+
+
 status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
     LOGV("configureCodec protected=%d",
          (mFlags & kEnableGrallocUsageProtected) ? 1 : 0);
@@ -522,6 +599,11 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
         uint32_t type;
         const void *data;
         size_t size;
+
+        if (meta->findData(kTypeHeader, &type, &data, &size)) {
+            LOGV ("Kkey header found .. SEND HEADER.");
+            addCodecSpecificData(data,size );
+        }
         if (meta->findData(kKeyESDS, &type, &data, &size)) {
             ESDS esds((const char *)data, size);
             CHECK_EQ(esds.InitCheck(), (status_t)OK);
@@ -538,74 +620,14 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
 
             const uint8_t *ptr = (const uint8_t *)data;
 
-            CHECK(size >= 7);
-            CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
-            uint8_t profile = ptr[1];
-            uint8_t level = ptr[3];
 
-            // There is decodable content out there that fails the following
-            // assertion, let's be lenient for now...
-            // CHECK((ptr[4] >> 2) == 0x3f);  // reserved
-
-            size_t lengthSize = 1 + (ptr[4] & 3);
-
-            // commented out check below as H264_QVGA_500_NO_AUDIO.3gp
-            // violates it...
-            // CHECK((ptr[5] >> 5) == 7);  // reserved
-
-            size_t numSeqParameterSets = ptr[5] & 31;
-
-            ptr += 6;
-            size -= 6;
-
-            for (size_t i = 0; i < numSeqParameterSets; ++i) {
-                CHECK(size >= 2);
-                size_t length = U16_AT(ptr);
-
-                ptr += 2;
-                size -= 2;
-
-                CHECK(size >= length);
-
-                addCodecSpecificData(ptr, length);
-
-                ptr += length;
-                size -= length;
+            if (ptr == NULL || size < 7) {
+                LOGV("Skipcodecdata- kKeyAVCC ERRROR: ptr= %x - size = %d", ptr, size);
+                goto skipcodecdata;
             }
-
-            CHECK(size >= 1);
-            size_t numPictureParameterSets = *ptr;
-            ++ptr;
-            --size;
-
-            for (size_t i = 0; i < numPictureParameterSets; ++i) {
-                CHECK(size >= 2);
-                size_t length = U16_AT(ptr);
-
-                ptr += 2;
-                size -= 2;
-
-                CHECK(size >= length);
-
-                addCodecSpecificData(ptr, length);
-
-                ptr += length;
-                size -= length;
-            }
-
-            CODEC_LOGI(
-                    "AVC profile = %d (%s), level = %d",
-                    (int)profile, AVCProfileToString(profile), level);
-            mOMXProfile = profile;
-
-            if (!strcmp(mComponentName, "OMX.TI.Video.Decoder")
-                && (profile != kAVCProfileBaseline || level > 30)) {
-                // This stream exceeds the decoder's capabilities. The decoder
-                // does not handle this gracefully and would clobber the heap
-                // and wreak havoc instead...
-
-                LOGE("Profile and/or level exceed the decoder's capabilities.");
-                return ERROR_UNSUPPORTED;
+            status_t err = parseAvccCodecConfig(data, size);
+            if (OK != err) {
+                return err;
             }
         } else if (meta->findData(kKeyVorbisInfo, &type, &data, &size)) {
             addCodecSpecificData(data, size);
@@ -613,8 +635,25 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
             CHECK(meta->findData(kKeyVorbisBooks, &type, &data, &size));
             addCodecSpecificData(data, size);
         }
+
+         //always try this!
+        if (meta->findData(kTypeMVCC, &type, &data, &size)) {
+            // Parse the AVCDecoderConfigurationRecord
+            LOGE("kTypeMVCC is called \n");
+            const uint8_t *ptr = (const uint8_t *)data;
+            if (ptr == NULL || size < 7) {
+                LOGV("Skipcodecdata- kKeyAVCC ERRROR: ptr= %x - size = %d", ptr, size);
+                goto skipcodecdata;
+            }
+            status_t err = parseAvccCodecConfig(data, size);
+            if (OK != err) {
+                return err;
+            }
+        }
+
     }
 
+skipcodecdata:
     int32_t bitRate = 0;
     if (mIsEncoder) {
         CHECK(meta->findInt32(kKeyBitRate, &bitRate));

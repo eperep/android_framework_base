@@ -128,12 +128,16 @@ enum {
 
     // An indication of current mode
     kKeyTimeLapse         = 'tlps',  // bool (int32_t)
+    kKeyHeader            = 'hder', //// represents header
+    kKeyMVCC              = 'mvcc',
 };
 
 enum {
     kTypeESDS        = 'esds',
     kTypeAVCC        = 'avcc',
     kTypeD263        = 'd263',
+    kTypeHeader      = 'hder',
+    kTypeMVCC        = 'mvcc',
 };
 
 class MetaData : public RefBase {

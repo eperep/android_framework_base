@@ -28,6 +28,84 @@ class DataSource;
 class SampleTable;
 class String8;
 
+/////////////////
+//MVC code !!!
+
+struct AtomMvGB {
+    uint32_t size;
+    char type[4];
+    uint8_t version;
+    uint32_t flag;
+    uint32_t multiview_group_id;
+    uint16_t num_entries;
+    struct entryinfo {
+        uint8_t  entry_type;
+        uint16_t output_view_id;
+    };
+    Vector<entryinfo> m_entries;
+};
+
+//vwid //>>ViewIdentifierBox
+struct ViewIdentifierBox {
+    uint32_t size;
+    char type[4];
+    uint8_t version;
+    uint32_t flag;
+
+    uint8_t min_temporal_id;
+    uint8_t max_temporal_id;
+    uint16_t num_views;
+    struct aView {
+        int myId;
+        uint16_t view_id;
+        uint16_t VOIdx;
+        uint8_t view_type;
+        uint16_t num_ref_views;
+        Vector<uint16_t> ref_view_id_list;
+    };
+    Vector<aView*> viewsList;
+};
+
+class AtomMvci{
+public:
+    uint32_t size;
+    uint_t type;
+    uint8_t version;
+    uint32_t flag;
+    struct AtomMvGB *m_AtomMvGB;
+    struct ViewIdentifierBox *m_vwid;
+
+public:
+    AtomMvci()
+    :size(0),type(0), version(0),flag(0),
+    m_AtomMvGB(NULL),
+    m_vwid(NULL)
+    {
+    }
+
+    ~AtomMvci() {
+        if(m_AtomMvGB != NULL) {
+            delete m_AtomMvGB;
+            m_AtomMvGB = NULL;
+        }
+
+        if(m_vwid != NULL) {
+            for (int i = 0; i< m_vwid->num_views;i++ ) {
+                free(m_vwid->viewsList.itemAt(i));
+            }
+            delete m_vwid;
+            m_vwid = NULL;
+        }
+    }
+
+    AtomMvci(const AtomMvci &);
+    AtomMvci &operator=(const AtomMvci &);
+    //returns true - if one of mvc related atom and parsed succ
+    //returns false -if not of one of mvc atom OR some error occured in parsing
+    bool ParseAndPopulate(status_t &pstatus);
+};
+
+
 class MPEG4Extractor : public MediaExtractor {
 public:
     // Extractor assumes ownership of "source".
@@ -65,6 +143,7 @@ private:
 
     sp<MetaData> mFileMetaData;
 
+    AtomMvci *mAtomMvci; // MVC
     Vector<uint32_t> mPath;
 
     status_t readMetaData();

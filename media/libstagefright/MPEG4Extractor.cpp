@@ -262,6 +262,10 @@ static const char *FourCC2MIME(uint32_t fourcc) {
     }
 }
 
+static inline unsigned U24_AT_LFUNC(const uint8_t *ptr) {
+    return ((ptr[0] & 0xFF) << 16) | ((ptr[1] & 0xFF) << 8 ) | (ptr[2] & 0xFF);
+}
+
 MPEG4Extractor::MPEG4Extractor(const sp<DataSource> &source)
     : mDataSource(source),
       mInitCheck(NO_INIT),
@@ -269,6 +273,7 @@ MPEG4Extractor::MPEG4Extractor(const sp<DataSource> &source)
       mFirstTrack(NULL),
       mLastTrack(NULL),
       mFileMetaData(new MetaData),
+      mAtomMvci(NULL),
       mFirstSINF(NULL),
       mIsDrm(false),
       m_qtmode(0){
@@ -283,6 +288,11 @@ MPEG4Extractor::~MPEG4Extractor() {
         track = next;
     }
     mFirstTrack = mLastTrack = NULL;
+
+    if (NULL != mAtomMvci) {
+       delete mAtomMvci;
+       mAtomMvci = NULL;
+    }
 
     SINF *sinf = mFirstSINF;
     while (sinf) {
@@ -1516,6 +1526,171 @@ status_t MPEG4Extractor::parseChunk(off64_t *offset, int depth) {
             }
             break;
         }
+        //MVC
+        case FOURCC('m','v','c','i'):
+        {
+            off_t stop_offset = *offset + chunk_size;
+            uint8_t buffer[4];
+            if (mDataSource->readAt(
+                        data_offset, buffer,4) < 4) {
+                return ERROR_IO;
+            }
+            if (NULL == mAtomMvci) {
+                mAtomMvci = new AtomMvci();
+            }
+            mAtomMvci->version = (uint8_t)buffer[0];
+            mAtomMvci->flag    =  U24_AT_LFUNC(&buffer[1]);
+            *offset = data_offset + 4;
+            while (*offset < stop_offset) {
+                status_t err = parseChunk(offset, depth + 1);
+                if (err != OK) {
+                    return err;
+                }
+            }
+            if (*offset != stop_offset) {
+                return ERROR_MALFORMED;
+            }
+            break;
+        }
+        case FOURCC('m','v','c','g'):
+        {
+            off_t stop_offset = *offset + chunk_size;
+            //parse the required items...
+            int32_t more = 0;
+
+            uint8_t buffer[11];
+            if (mDataSource->readAt(
+                        data_offset, buffer,11) < 11) {
+                return ERROR_IO;
+            }
+            if (NULL == mAtomMvci) { //we dont have one, create now!
+                mAtomMvci = new AtomMvci();
+            }
+            if (NULL == mAtomMvci->m_AtomMvGB) {
+                mAtomMvci->m_AtomMvGB = new AtomMvGB;
+            }
+            AtomMvGB *pmvcg = mAtomMvci->m_AtomMvGB;
+            pmvcg->version = (uint8_t)buffer[0];
+            pmvcg->flag = U24_AT_LFUNC(&buffer[1]);
+            pmvcg->multiview_group_id = U32_AT(&buffer[4]);
+            pmvcg->num_entries = (buffer[8] << 8) | buffer[9];
+            more = pmvcg->num_entries * ((8 + 6 + 10) / 8);
+            *offset = data_offset + 11 ;
+            for (int i=0; i<pmvcg->num_entries; i++) {
+                uint8_t lbuf[3];
+                if (mDataSource->readAt(*offset, lbuf, 3) < 3) {
+                    return ERROR_IO;
+                }
+                *offset += 3;
+                AtomMvGB::entryinfo ei;
+                ei.entry_type = (uint8_t)lbuf[0];
+                ei.output_view_id = (( lbuf[1] & 0x03 ) << 8) | lbuf[2];
+
+                pmvcg->m_entries.push(ei);
+            }
+            while (*offset < stop_offset) {
+                status_t err = parseChunk(offset, depth + 1);
+                if (err != OK) {
+                    return err;
+                }
+            }
+            if (*offset != stop_offset) {
+                return ERROR_MALFORMED;
+            }
+            break;
+        }
+
+        case FOURCC('v','w','i','d'):
+        {
+            if (NULL == mAtomMvci) { //we dont have one, create now!
+                mAtomMvci = new AtomMvci();
+            }
+            if (NULL == mAtomMvci->m_vwid) {
+                mAtomMvci->m_vwid = new ViewIdentifierBox;
+            }
+            ViewIdentifierBox *pVWID = mAtomMvci->m_vwid ;
+            off_t stop_offset = *offset + chunk_size;
+            int32_t more = 0;
+            uint8_t buffer[7];
+            if (mDataSource->readAt( data_offset, buffer,7) < 7) {
+                return ERROR_IO;
+            }
+            *offset = data_offset +  7;
+            pVWID->version = (uint8_t)buffer[0];
+            pVWID->flag = U24_AT_LFUNC(&buffer[1]);
+            uint8_t temp = (uint8_t) buffer[4];
+            pVWID->min_temporal_id = temp & 0x38;
+            pVWID->max_temporal_id = temp & 0x07;
+            pVWID->num_views = (buffer[5] << 8 | buffer[6]);
+            uint16_t nof_of_ref_views = 0;
+            for (int i=0; i < pVWID->num_views; i++) {
+                uint8_t buf[6];
+                if (mDataSource->readAt( *offset, buf,6) < 6) {
+                    return ERROR_IO;
+                }
+                *offset += 6;
+                ViewIdentifierBox::aView *pav = new ViewIdentifierBox::aView;
+                pav->myId = i ; //
+                pav->view_id = ((buf[0] & 0x03) << 8) | buf[1];
+                pav->VOIdx = ((buf[2] & 0x03) << 8) | buf[3];;
+                pav->view_type = buf[4] & 0x03;
+                pav->num_ref_views = ((buf[4] & 0x03) << 8) | buf[5];;
+                pVWID->viewsList.add(pav);
+                nof_of_ref_views += pav->num_ref_views;
+            }
+            uint8_t *bufx = new uint8_t[nof_of_ref_views * 2];
+            if (mDataSource->readAt( *offset, bufx,(nof_of_ref_views * 2)) < (nof_of_ref_views * 2)) {
+                    delete [] bufx;
+                    return ERROR_IO;
+            }
+            *offset += (nof_of_ref_views * 2);
+            int k =0;
+            for (int i = 0; i< pVWID->num_views;i++ ) {
+                ViewIdentifierBox::aView *pav = pVWID->viewsList.itemAt(i);
+                for (int j = 0; j < pav->num_ref_views ; j++) {
+                    pav->ref_view_id_list.add( ((bufx[k*2] & 0x03) << 8) | bufx[k * 2 + 1] );
+                    k++;
+                }
+            }
+            delete [] bufx;
+            if (*offset != stop_offset) {
+                LOGI("ERROR ERROR :--- vwid atom hit - parse end *offset:%ld  stop_offset:%ld\n",*offset,stop_offset);
+                //return ERROR_MALFORMED;
+            }
+            *offset = stop_offset;
+            break;
+        }
+
+        case FOURCC('m','v','c','C'):
+        {
+            char buffer[256 * 2];
+            if (chunk_data_size > (off_t)sizeof(buffer)) {
+                LOGI("mvcc: chunk_data_size > (off_t)sizeof(buffer) - failed: %ld  %ld \n",chunk_data_size, (off_t)sizeof(buffer));
+                return ERROR_BUFFER_TOO_SMALL;
+            }
+
+            if (mDataSource->readAt(
+                        data_offset, buffer, chunk_data_size) < chunk_data_size) {
+                LOGI("mvcc coulnt able to read chunk_data_size \n");
+                return ERROR_IO;
+            }
+            /*  TODO: enable this, when mvcc-h264 decoder part is done
+            mLastTrack->meta->setData(
+                    kKeyMVCC, kTypeMVCC, buffer, chunk_data_size);
+            */
+            *offset += chunk_size;
+            break;
+        }
+
+        case FOURCC('m','v','r','a'):
+        case FOURCC('v','w','d','i'):
+        {
+            //currently we dont have any info - on this atoms
+            *offset += chunk_size;
+            break;
+
+        }
+
         default:
         {
             *offset += chunk_size;
