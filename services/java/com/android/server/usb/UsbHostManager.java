@@ -42,6 +42,7 @@ import android.util.Slog;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileReader;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
@@ -155,6 +156,13 @@ public class UsbHostManager {
                     deviceClass, deviceSubclass, deviceProtocol, interfaces);
             mDevices.put(deviceName, device);
             mSettingsManager.deviceAttached(device);
+
+            /* Sony Playstation 3 controller requires additional action */
+            final int SONY_VENDOR_ID = 0x054c;
+            final int SONY_PS3_PRODUCT_ID = 0x0268;
+            if (vendorID == SONY_VENDOR_ID && productID == SONY_PS3_PRODUCT_ID) {
+                startPs3PairingService();
+            }
         }
     }
 
@@ -213,6 +221,23 @@ public class UsbHostManager {
             for (String name : mDevices.keySet()) {
                 pw.println("    " + name + ": " + mDevices.get(name));
             }
+        }
+    }
+
+    /* Starts the PS3 controller's pairing service */
+    private void startPs3PairingService() {
+        try {
+            Process p = Runtime.getRuntime().exec("/system/bin/start ps3service");
+            int status = p.waitFor();
+            if (status == 0) {
+                Slog.d(TAG,"PS3 Pairing successful");
+            } else {
+                Slog.w(TAG,"PS3 Pairing Failed");
+            }
+        } catch (IOException e) {
+            Slog.e(TAG,"PS3 Pairing Fail: IOException");
+        } catch (InterruptedException e) {
+            Slog.e(TAG,"PS3 Pairing Fail: InterruptedException");
         }
     }
 
