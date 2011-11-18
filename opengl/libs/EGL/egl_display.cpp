@@ -223,7 +223,7 @@ EGLBoolean egl_display_t::terminate() {
     Mutex::Autolock _l(lock);
 
     if (refs == 0) {
-        return setError(EGL_NOT_INITIALIZED, EGL_FALSE);
+        return EGL_TRUE;
     }
 
     // this is specific to Android, display termination is ref-counted.
