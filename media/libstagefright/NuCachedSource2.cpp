@@ -16,6 +16,9 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "NuCachedSource2"
+
+#define PROFILING
+
 #include <utils/Log.h>
 
 #include "include/NuCachedSource2.h"
@@ -232,6 +235,16 @@ status_t NuCachedSource2::getEstimatedBandwidthKbps(int32_t *kbps) {
         HTTPBase* source = static_cast<HTTPBase *>(mSource.get());
         return source->getEstimatedBandwidthKbps(kbps);
     }
+    return ERROR_UNSUPPORTED;
+}
+
+status_t NuCachedSource2::getAvgBandwidthForSession(int32_t *kbps) {
+#ifdef PROFILING
+    if (mSource->flags() & kIsHTTPBasedSource) {
+        HTTPBase* source = static_cast<HTTPBase *>(mSource.get());
+        return source->getAvgBandwidthForSession(kbps);
+    }
+#endif
     return ERROR_UNSUPPORTED;
 }
 

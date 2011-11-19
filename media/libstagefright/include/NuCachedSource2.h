@@ -57,6 +57,7 @@ struct NuCachedSource2 : public DataSource {
     // data source is HTTP-based; otherwise, ERROR_UNSUPPORTED
     // is returned.
     status_t getEstimatedBandwidthKbps(int32_t *kbps);
+    status_t getAvgBandwidthForSession(int32_t *kbps);
     status_t setCacheStatCollectFreq(int32_t freqMs);
 
     static void RemoveCacheSpecificHeaders(

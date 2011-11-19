@@ -2091,6 +2091,7 @@ void AwesomePlayer::postStreamDoneEvent_l(status_t status) {
         LOGI("--------Dropped frames = %d", (int) mStats.mNumVideoFramesDropped);
         LOGI("--------Rendered frames = %d", numRendFrame);
 
+        LOGI("--------Streaming Statistics------------");
         int64_t bufferingLatencyUs = 0;
 
         if (mHighWaterMarkTimeUs != 0) {
@@ -2100,13 +2101,23 @@ void AwesomePlayer::postStreamDoneEvent_l(status_t status) {
         LOGI("--------Number of Pauses due to Cache Underrun = %d", mNoOfPauses);
 
         int64_t absolutePlayTimeUs = ALooper::GetNowUs() - startTimeUs;
-        int64_t avgDurationOfPauseUs = 0;
+        int64_t totDurationOfPauseUs = 0;
 
         if (mNoOfPauses > 0) {
-            avgDurationOfPauseUs = (absolutePlayTimeUs - mDurationUs) / mNoOfPauses;
+            totDurationOfPauseUs = absolutePlayTimeUs - mDurationUs;
         }
-        LOGI("--------Average duration of Pause = %.2f secs", avgDurationOfPauseUs / 1E6);
+        LOGI("--------Total Duration of Pause = %.2f secs", totDurationOfPauseUs / 1E6);
         LOGI("--------Absolute Playback time = %.2f secs", absolutePlayTimeUs / 1E6);
+
+        if (mCachedSource != NULL) {
+            int32_t kbps = 0;
+            status_t err = mCachedSource->getAvgBandwidthForSession(&kbps);
+            if (err == OK) {
+                LOGI("--------Average Estimated bandwidth was %d kbps", kbps);
+            } else {
+                LOGI("--------Average Estimated bandwidth was Unknown");
+            }
+        }
 
         if (pJitter && showJitter)
         {

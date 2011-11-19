@@ -16,6 +16,9 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "HTTPBase"
+
+#define PROFILING
+
 #include <utils/Log.h>
 
 #include "include/HTTPBase.h"
@@ -38,7 +41,8 @@ HTTPBase::HTTPBase()
       mTotalTransferBytes(0),
       mPrevBandwidthMeasureTimeUs(0),
       mPrevEstimatedBandWidthKbps(0),
-      mBandWidthCollectFreqMs(5000),
+      mBandWidthCollectFreqMs(2000),
+      mNumEstBwHistoryItems(0),
       mUIDValid(false),
       mUID(0) {
 }
@@ -66,7 +70,7 @@ void HTTPBase::addBandwidthMeasurement(
     mTotalTransferBytes += numBytes;
 
     mBandwidthHistory.push_back(entry);
-    if (++mNumBandwidthHistoryItems > 100) {
+    if (++mNumBandwidthHistoryItems > 50) {
         BandwidthEntry *entry = &*mBandwidthHistory.begin();
         mTotalTransferTimeUs -= entry->mDelayUs;
         mTotalTransferBytes -= entry->mNumBytes;
@@ -80,6 +84,11 @@ void HTTPBase::addBandwidthMeasurement(
             if (mPrevBandwidthMeasureTimeUs != 0) {
                 mPrevEstimatedBandWidthKbps =
                     (mTotalTransferBytes * 8E3 / mTotalTransferTimeUs);
+
+                LOGW("estimated avg bandwidth is %d kbps in the past %lld us",
+                    mPrevEstimatedBandWidthKbps, timeNowUs - mPrevBandwidthMeasureTimeUs);
+                mEstBandwidthHistory.push_back(mPrevEstimatedBandWidthKbps);
+                mNumEstBwHistoryItems++;
             }
             mPrevBandwidthMeasureTimeUs = timeNowUs;
         }
@@ -102,6 +111,23 @@ bool HTTPBase::estimateBandwidth(int32_t *bandwidth_bps) {
 status_t HTTPBase::getEstimatedBandwidthKbps(int32_t *kbps) {
     Mutex::Autolock autoLock(mLock);
     *kbps = mPrevEstimatedBandWidthKbps;
+    return OK;
+}
+
+status_t HTTPBase::getAvgBandwidthForSession(int32_t *kbps) {
+#ifdef PROFILING
+    Mutex::Autolock autoLock(mLock);
+
+    *kbps = 0;
+    int32_t totBwHistory = 0;
+    List<int32_t>::iterator iter;
+    for (iter = mEstBandwidthHistory.begin(); iter != mEstBandwidthHistory.end(); iter++) {
+        totBwHistory += *iter;
+    }
+    if (mNumEstBwHistoryItems > 0) {
+        *kbps = (int32_t)(totBwHistory / mNumEstBwHistoryItems);
+    }
+#endif
     return OK;
 }
 

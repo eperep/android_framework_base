@@ -46,6 +46,8 @@ struct HTTPBase : public DataSource {
 
     virtual status_t getEstimatedBandwidthKbps(int32_t *kbps);
 
+    virtual status_t getAvgBandwidthForSession(int32_t *kbps);
+
     virtual status_t setBandwidthStatCollectFreq(int32_t freqMs);
 
     void setUID(uid_t uid);
@@ -80,6 +82,8 @@ private:
     int64_t mPrevBandwidthMeasureTimeUs;
     int32_t mPrevEstimatedBandWidthKbps;
     int32_t mBandWidthCollectFreqMs;
+    List<int32_t> mEstBandwidthHistory;
+    size_t mNumEstBwHistoryItems;
 
     bool mUIDValid;
     uid_t mUID;
