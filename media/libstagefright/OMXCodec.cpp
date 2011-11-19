@@ -3956,6 +3956,12 @@ status_t OMXCodec::stop() {
 
     Mutex::Autolock autoLock(mLock);
 
+    if (mIsEncoder) {
+        //Flush both ports
+        fillOutputBuffers();
+        drainInputBuffers();
+    }
+
     while (isIntermediateState(mState)) {
         mAsyncCompletion.wait(mLock);
     }
