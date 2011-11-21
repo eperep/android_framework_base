@@ -142,6 +142,7 @@ FramebufferNativeWindow::FramebufferNativeWindow()
     ANativeWindow::queueBuffer = queueBuffer;
     ANativeWindow::query = query;
     ANativeWindow::perform = perform;
+    ANativeWindow::cancelBuffer = cancelBuffer;
 }
 
 FramebufferNativeWindow::~FramebufferNativeWindow() 
@@ -331,6 +332,12 @@ int FramebufferNativeWindow::perform(ANativeWindow* window,
             return INVALID_OPERATION;
     }
     return NAME_NOT_FOUND;
+}
+
+int FramebufferNativeWindow::cancelBuffer(ANativeWindow* window,
+        android_native_buffer_t* buffer)
+{
+    return NO_ERROR;
 }
 
 // ----------------------------------------------------------------------------
