@@ -47,6 +47,9 @@
 #include "include/avc_utils.h"
 #include <cutils/properties.h>
 
+#define PORT_SETTINGS_DELAYED                   0X01
+#define PORT_SETTINGS_NOT_CHANGED               0x02
+#define DO_NOT_SEND_BUFFER                      0x04
 namespace android {
 
 // Treat time out as an error if we have not received any output
@@ -1539,6 +1542,9 @@ OMXCodec::OMXCodec(
       mSignalledEOS(false),
       mNoMoreOutputData(false),
       mOutputPortSettingsHaveChanged(false),
+      mPortSettingsEvent(0),
+      mEventPortIndex(-1),
+      mBuffersWithRenderer(0),
       mSeekTimeUs(-1),
       mSeekMode(ReadOptions::SEEK_CLOSEST_SYNC),
       mTargetTimeUs(-1),
@@ -2604,8 +2610,10 @@ void OMXCodec::onEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
                 // There is no need to check whether mFilledBuffers is empty or not
                 // when the OMX_EventPortSettingsChanged is not meant for reallocating
                 // the output buffers.
-                if (data1 == kPortIndexOutput) {
-                    CHECK(mFilledBuffers.empty());
+                if (mBuffersWithRenderer == 1)
+                {
+                    mPortSettingsEvent = mPortSettingsEvent | DO_NOT_SEND_BUFFER;
+                    mPortSettingsEvent = mPortSettingsEvent | PORT_SETTINGS_DELAYED;
                 }
                 onPortSettingsChanged(data1);
             } else if (data1 == kPortIndexOutput &&
@@ -2732,6 +2740,8 @@ void OMXCodec::onCmdComplete(OMX_COMMANDTYPE cmd, OMX_U32 data) {
                         setState(ERROR);
                     }
                 }
+                mBuffersWithRenderer = 0;
+                mPortSettingsEvent = (mPortSettingsEvent & ~(DO_NOT_SEND_BUFFER));
             }
             break;
         }
@@ -3067,17 +3077,26 @@ void OMXCodec::onPortSettingsChanged(OMX_U32 portIndex) {
     if (mState == ERROR)
         return;
 
-    CHECK_EQ((int)mState, (int)EXECUTING);
-    CHECK_EQ(portIndex, (OMX_U32)kPortIndexOutput);
-    CHECK(!mOutputPortSettingsChangedPending);
-
-    if (mPortStatus[kPortIndexOutput] != ENABLED) {
-        CODEC_LOGV("Deferring output port settings change.");
-        mOutputPortSettingsChangedPending = true;
+    if((mBuffersWithRenderer == 1) && (mPortSettingsEvent & PORT_SETTINGS_DELAYED)) {
+        mEventPortIndex = portIndex;
+        CHECK_EQ((int)mState, (int)EXECUTING);
+        CHECK_EQ(portIndex, (OMX_U32)kPortIndexOutput);
+        setState(RECONFIGURING);
         return;
-    }
+    } else {
+        if(mState != RECONFIGURING) {
+            CHECK_EQ((int)mState, (int)EXECUTING);
+            CHECK_EQ(portIndex, (OMX_U32)kPortIndexOutput);
+            setState(RECONFIGURING);
+        }
+        CHECK(!mOutputPortSettingsChangedPending);
 
-    setState(RECONFIGURING);
+        if (mPortStatus[kPortIndexOutput] != ENABLED) {
+            CODEC_LOGV("Deferring output port settings change.");
+            mOutputPortSettingsChangedPending = true;
+            return;
+        }
+    }
 
     if (mQuirks & kNeedsFlushBeforeDisable) {
         if (!flushPortAsync(portIndex)) {
@@ -4186,7 +4205,25 @@ status_t OMXCodec::read(
         }
     }
 
-    while (mState != ERROR && !mNoMoreOutputData && mFilledBuffers.empty()) {
+    if((mPortSettingsEvent & PORT_SETTINGS_NOT_CHANGED) && (mBuffersWithRenderer == 1)) {
+        mPortSettingsEvent = (mPortSettingsEvent & ~(PORT_SETTINGS_NOT_CHANGED));
+        onPortSettingsChanged(mEventPortIndex);
+    }
+
+    if((mPortSettingsEvent & PORT_SETTINGS_DELAYED) && (mBuffersWithRenderer == 1)) {
+        mPortSettingsEvent = (mPortSettingsEvent | (PORT_SETTINGS_NOT_CHANGED));
+        mPortSettingsEvent = (mPortSettingsEvent & ~(PORT_SETTINGS_DELAYED));
+        mFilledBuffers.clear();
+        return INFO_FORMAT_CHANGED;
+    }
+
+
+    if(mPortSettingsEvent & DO_NOT_SEND_BUFFER) {
+        mFilledBuffers.clear();
+        return INFO_FORMAT_CHANGED;
+    }
+
+    while (  mState != ERROR && !mNoMoreOutputData && mFilledBuffers.empty()) {
         if ((err = waitForBufferFilled_l()) != OK) {
             return err;
         }
@@ -4228,6 +4265,10 @@ status_t OMXCodec::read(
             UpdateChannelMapInfo(&pcmParams);
     }
 
+    if(mBuffersWithRenderer == 0)
+    {
+        mBuffersWithRenderer = 1;
+    }
     return OK;
 }
 
@@ -4841,6 +4882,10 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                     CODEC_LOGI(
                             "Crop rect is %ld x %ld @ (%ld, %ld)",
                             rect.nWidth, rect.nHeight, rect.nLeft, rect.nTop);
+
+                    mOutputFormat->setInt32(kKeyDisplayWidth, rect.nWidth);
+                    mOutputFormat->setInt32(kKeyDisplayHeight, rect.nHeight);
+
                 } else {
                     mOutputFormat->setRect(
                             kKeyCropRect,

@@ -189,6 +189,9 @@ private:
     status_t mFinalStatus;
     bool mNoMoreOutputData;
     bool mOutputPortSettingsHaveChanged;
+    bool mBuffersWithRenderer;
+    int32_t mPortSettingsEvent;
+    int32_t mEventPortIndex;
     int64_t mSeekTimeUs;
     ReadOptions::SeekMode mSeekMode;
     int64_t mTargetTimeUs;

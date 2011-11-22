@@ -1850,6 +1850,10 @@ void AwesomePlayer::onVideoEvent() {
                 if (err == INFO_FORMAT_CHANGED) {
                     LOGV("VideoSource signalled format change.");
 
+                    if (mVideoBuffer) {
+                        mVideoBuffer->release();
+                        mVideoBuffer = NULL;
+                    }
                     notifyVideoSize_l();
 
                     if (mVideoRenderer != NULL) {
