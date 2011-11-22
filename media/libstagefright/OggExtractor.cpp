@@ -624,7 +624,8 @@ status_t MyVorbisExtractor::init() {
 
     off64_t size;
     uint64_t lastGranulePosition;
-    if (!(mSource->flags() & DataSource::kIsCachingDataSource)
+    if ((!(mSource->flags() & DataSource::kIsCachingDataSource)
+            || (mSource->flags() & DataSource::kIsLocalDataSource))
             && mSource->getSize(&size) == OK
             && findPrevGranulePosition(size, &lastGranulePosition) == OK) {
         // Let's assume it's cheap to seek to the end.
