@@ -252,6 +252,8 @@ private:
     // to compute this matrix and stores it in mCurrentTransformMatrix.
     void computeCurrentTransformMatrix();
 
+    void repopulateReturnQueue();
+
     enum { INVALID_BUFFER_SLOT = -1 };
 
     struct BufferSlot {
@@ -443,6 +445,7 @@ private:
     // mQueue is a FIFO of queued buffers used in synchronous mode
     typedef Vector<int> Fifo;
     Fifo mQueue;
+    Fifo mReturnQueue;
 
     // mAbandoned indicates that the SurfaceTexture will no longer be used to
     // consume images buffers pushed to it using the ISurfaceTexture interface.

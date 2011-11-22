@@ -122,6 +122,7 @@ SurfaceTexture::SurfaceTexture(GLuint tex, bool allowSynchronousMode,
     mNextCrop.makeInvalid();
     memcpy(mCurrentTransformMatrix, mtxIdentity,
             sizeof(mCurrentTransformMatrix));
+    repopulateReturnQueue();
 }
 
 SurfaceTexture::~SurfaceTexture() {
@@ -129,9 +130,46 @@ SurfaceTexture::~SurfaceTexture() {
     freeAllBuffersLocked();
 }
 
+void SurfaceTexture::repopulateReturnQueue()
+{
+    if (!mReturnQueue.size()) {
+        //Fastpath of empty queue.  Just add all free buffers
+        for (int i = 0; i < mBufferCount; i++) {
+            if (mSlots[i].mBufferState == BufferSlot::FREE) {
+                mReturnQueue.push_back(i);
+            }
+        }
+    } else {
+        //Partial rebuild
+        for (int i = 0; i < mBufferCount; i++) {
+            if (mSlots[i].mBufferState == BufferSlot::FREE) {
+                bool notFound = true;
+                for (int j = 0; j < mReturnQueue.size(); j++) {
+                    if (mReturnQueue[j] == i) {
+                        notFound = false;
+                    }
+                }
+                if (notFound) {
+                    mReturnQueue.push_back(i);
+                }
+            }
+        }
+        //Just to be safe against messed-up state, re-validate queue
+        for (int i = 0; i < mReturnQueue.size(); i++) {
+            if (mSlots[mReturnQueue[i]].mBufferState
+                    != BufferSlot::FREE) {
+                mReturnQueue.removeAt(i);
+                i--;
+            }
+        }
+    }
+}
+
 status_t SurfaceTexture::setBufferCountServerLocked(int bufferCount) {
     //catch if we are using 2d skia/software on the buffer, if so force double buffering
-    if (mCurrentTextureBuf != 0 &&  mCurrentTextureBuf->getUsage() &(GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK)) {
+    if (mCurrentTextureBuf != 0 &&
+            mCurrentTextureBuf->getUsage() &
+            (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK)) {
         bufferCount = 2;
     }
     if (bufferCount > NUM_BUFFER_SLOTS)
@@ -144,8 +182,8 @@ status_t SurfaceTexture::setBufferCountServerLocked(int bufferCount) {
     //only change the buffer count if the client didn't set a buffercount
     if(!mClientBufferCount) {
         if (bufferCount >= mBufferCount) {
-            // easy, we just have more buffers
             mBufferCount = bufferCount;
+            repopulateReturnQueue();
             mServerBufferCount = bufferCount;
             mDequeueCondition.signal();
         } else {
@@ -212,8 +250,10 @@ status_t SurfaceTexture::setBufferCount(int bufferCount) {
 
     // here we're guaranteed that the client doesn't have dequeued buffers
     // and will release all of its buffer references.
+    mReturnQueue.clear();
     freeAllBuffersLocked();
     mBufferCount = bufferCount;
+    repopulateReturnQueue();
     mClientBufferCount = bufferCount;
     mCurrentTexture = INVALID_BUFFER_SLOT;
     mQueue.clear();
@@ -306,10 +346,12 @@ status_t SurfaceTexture::dequeueBuffer(int *outBuf, uint32_t w, uint32_t h,
 
         if (numberOfBuffersNeedsToChange) {
             // here we're guaranteed that mQueue is empty
+            mReturnQueue.clear();
             freeAllBuffersLocked();
             mBufferCount = mServerBufferCount;
             if (mBufferCount < minBufferCountNeeded)
                 mBufferCount = minBufferCountNeeded;
+            repopulateReturnQueue();
             mCurrentTexture = INVALID_BUFFER_SLOT;
             returnFlags |= ISurfaceTexture::RELEASE_ALL_BUFFERS;
         }
@@ -318,30 +360,30 @@ status_t SurfaceTexture::dequeueBuffer(int *outBuf, uint32_t w, uint32_t h,
         found = INVALID_BUFFER_SLOT;
         foundSync = INVALID_BUFFER_SLOT;
         dequeuedCount = 0;
+        if (mReturnQueue.size()) {
+            Fifo::iterator front(mReturnQueue.begin());
+            found = *front;
+            foundSync = found;
+            LOGW_IF(mSlots[found].mBufferState != BufferSlot::FREE,
+                    "dequeueBuffer: buffer %d was in free list but was not free!",
+                    found);
+            LOGW_IF((mSlots[found].mBufferState
+                        == BufferSlot::FREE) && (mCurrentTexture==found),
+                    "dequeueBuffer: buffer %d is both FREE and current!" ,
+                    found);
+            LOGW_IF(found > mBufferCount,
+                    "dequeueBuffer: buffer is out-of-range of buffer count!");
+            mReturnQueue.erase(front);
+        }
+        if (ALLOW_DEQUEUE_CURRENT_BUFFER) {
+            if (foundSync == INVALID_BUFFER_SLOT) {
+                foundSync = mCurrentTexture;
+            }
+        }
         for (int i = 0; i < mBufferCount; i++) {
             const int state = mSlots[i].mBufferState;
             if (state == BufferSlot::DEQUEUED) {
                 dequeuedCount++;
-            }
-
-            // if buffer is FREE it CANNOT be current
-            LOGW_IF((state == BufferSlot::FREE) && (mCurrentTexture==i),
-                    "dequeueBuffer: buffer %d is both FREE and current!", i);
-
-            if (ALLOW_DEQUEUE_CURRENT_BUFFER) {
-                if (state == BufferSlot::FREE || i == mCurrentTexture) {
-                    foundSync = i;
-                    if (i != mCurrentTexture) {
-                        found = i;
-                        break;
-                    }
-                }
-            } else {
-                if (state == BufferSlot::FREE) {
-                    foundSync = i;
-                    found = i;
-                    break;
-                }
             }
         }
 
@@ -520,6 +562,7 @@ status_t SurfaceTexture::queueBuffer(int buf, int64_t timestamp,
                 Fifo::iterator front(mQueue.begin());
                 // buffer currently queued is freed
                 mSlots[*front].mBufferState = BufferSlot::FREE;
+                mReturnQueue.push_back(*front);
                 // and we record the new buffer index in the queued list
                 *front = buf;
             }
@@ -563,6 +606,7 @@ void SurfaceTexture::cancelBuffer(int buf) {
         return;
     }
     mSlots[buf].mBufferState = BufferSlot::FREE;
+    mReturnQueue.push_back(buf);
     mDequeueCondition.signal();
 }
 
@@ -597,6 +641,8 @@ status_t SurfaceTexture::connect(int api,
         ST_LOGE("connect: SurfaceTexture has been abandoned!");
         return NO_INIT;
     }
+
+    repopulateReturnQueue();
 
     int err = NO_ERROR;
     switch (api) {
@@ -728,8 +774,10 @@ status_t SurfaceTexture::updateTexImage() {
             // The current buffer becomes FREE if it was still in the queued
             // state. If it has already been given to the client
             // (synchronous mode), then it stays in DEQUEUED state.
-            if (mSlots[mCurrentTexture].mBufferState == BufferSlot::QUEUED)
+            if (mSlots[mCurrentTexture].mBufferState == BufferSlot::QUEUED) {
                 mSlots[mCurrentTexture].mBufferState = BufferSlot::FREE;
+                mReturnQueue.push_back(mCurrentTexture);
+            }
         }
 
         // Update the SurfaceTexture state.

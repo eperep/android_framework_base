@@ -633,6 +633,13 @@ public abstract class HardwareRenderer {
                         + GLUtils.getEGLErrorString(sEgl.eglGetError()));
             }
 
+            preserveBackBufferOrCheckPreserved();
+
+
+            return mEglContext.getGL();
+        }
+
+        private void preserveBackBufferOrCheckPreserved() {
             // If mDirtyRegions is set, this means we have an EGL configuration
             // with EGL_SWAP_BEHAVIOR_PRESERVED_BIT set
             if (sDirtyRegions) {
@@ -648,8 +655,6 @@ public abstract class HardwareRenderer {
                 // configuration (see RENDER_DIRTY_REGIONS)
                 mDirtyRegionsEnabled = GLES20Canvas.isBackBufferPreserved();
             }
-
-            return mEglContext.getGL();
         }
 
         EGLContext createContext(EGL10 egl, EGLDisplay eglDisplay, EGLConfig eglConfig) {
@@ -701,6 +706,10 @@ public abstract class HardwareRenderer {
                 if (!createSurface(holder)) {
                     return;
                 }
+                //EGL_BUFFER_PRESERVED is actually a surface attrib
+                //and we probably just destroyed our surface
+                //we need to re-check/set it
+                preserveBackBufferOrCheckPreserved();
                 if (mCanvas != null) {
                     setEnabled(true);
                 }
