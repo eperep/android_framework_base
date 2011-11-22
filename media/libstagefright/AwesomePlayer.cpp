@@ -2062,7 +2062,12 @@ void AwesomePlayer::onVideoEvent() {
         return;
     }
 
-    postVideoEvent_l();
+#ifdef PROFILING
+    if (statFlag && noAvsync)
+        postVideoEvent_l(0);
+    else
+#endif
+        postVideoEvent_l();
 }
 
 void AwesomePlayer::postVideoEvent_l(int64_t delayUs) {
