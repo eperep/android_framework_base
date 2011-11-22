@@ -14,6 +14,16 @@
  ** limitations under the License.
  */
 
+/*
+ * Copyright (c) 2005 - 2011 NVIDIA Corporation.  All rights reserved.
+ *
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
+ */
+
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,7 +59,7 @@ using namespace android;
 
 // ----------------------------------------------------------------------------
 
-static char const * const sVendorString     = "Android";
+static char const * const sVendorString     = "NVIDIA";
 static char const * const sVersionString    = "1.4 Android META-EGL";
 static char const * const sClientApiString  = "OpenGL ES";
 static char const * const sExtensionString  =
@@ -897,17 +907,17 @@ __eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname)
                 if (cnx->dso && cnx->egl.eglGetProcAddress) {
                     found = true;
                     // Extensions are independent of the bound context
+                    addr =
                     cnx->hooks[GLESv1_INDEX]->ext.extensions[slot] =
                     cnx->hooks[GLESv2_INDEX]->ext.extensions[slot] =
 #if EGL_TRACE
                     gHooksDebug.ext.extensions[slot] = gHooksTrace.ext.extensions[slot] =
 #endif
                             cnx->egl.eglGetProcAddress(procname);
+                    break;
                 }
             }
             if (found) {
-                addr = gExtensionForwarders[slot];
-
                 if (!strcmp(procname, "glEGLImageTargetTexture2DOES")) {
                     glEGLImageTargetTexture2DOES_impl = (PFNGLEGLIMAGETARGETTEXTURE2DOESPROC)addr;
                     addr = (__eglMustCastToProperFunctionPointerType)glEGLImageTargetTexture2DOES_wrapper;
@@ -962,6 +972,45 @@ EGLBoolean eglCopyBuffers(  EGLDisplay dpy, EGLSurface surface,
             dp->disp[s->impl].dpy, s->surface, target);
 }
 
+static void mergeExtensions(String8* dest, char const* src)
+{
+    for (;;) {
+        while (*src == ' ')
+            ++src;
+        if (*src == '\0')
+            return;
+        char const* extensionEnd = src;
+        while (*extensionEnd != ' ' && *extensionEnd != '\0')
+            ++extensionEnd;
+        String8 extension(src, extensionEnd - src);
+        if (dest->find(extension.string()) == -1) {
+            if (!dest->isEmpty())
+                dest->append(" ");
+            dest->append(extension);
+        }
+        src = extensionEnd;
+    }
+}
+
+static char const* getExtensionString(egl_display_t const* dp)
+{
+    static Mutex sMutex;
+    static String8 sResultHolder;
+
+    Mutex::Autolock lock(sMutex);
+
+    if (sResultHolder.isEmpty()) {
+        for (int i = 0; i < IMPL_NUM_IMPLEMENTATIONS; ++i) {
+            if (dp->disp[i].queryString.extensions) {
+                mergeExtensions(&sResultHolder, dp->disp[i].queryString.extensions);
+            }
+        }
+        mergeExtensions(&sResultHolder, sExtensionString);
+    }
+
+    return sResultHolder.string();
+}
+
 const char* eglQueryString(EGLDisplay dpy, EGLint name)
 {
     clearError();
@@ -975,7 +1024,7 @@ const char* eglQueryString(EGLDisplay dpy, EGLint name)
         case EGL_VERSION:
             return sVersionString;
         case EGL_EXTENSIONS:
-            return sExtensionString;
+            return getExtensionString(dp);
         case EGL_CLIENT_APIS:
             return sClientApiString;
     }

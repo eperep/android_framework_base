@@ -14,6 +14,16 @@
  ** limitations under the License.
  */
 
+/*
+ * Copyright (c) 2005 - 2011 NVIDIA Corporation.  All rights reserved.
+ *
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
+ */
+
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -250,8 +260,12 @@ static EGLBoolean egl_init_drivers_locked() {
     // dynamically load all our EGL implementations
     egl_connection_t* cnx;
 
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.egl.hw", value, "1");
+    bool useHardwareRenderer = (atoi(value) != 0);
+
     cnx = &gEGLImpl[IMPL_SOFTWARE];
-    if (cnx->dso == 0) {
+    if (cnx->dso == 0 && !useHardwareRenderer) {
         cnx->hooks[GLESv1_INDEX] = &gHooks[GLESv1_INDEX][IMPL_SOFTWARE];
         cnx->hooks[GLESv2_INDEX] = &gHooks[GLESv2_INDEX][IMPL_SOFTWARE];
         cnx->dso = loader.open(EGL_DEFAULT_DISPLAY, 0, cnx);
@@ -261,7 +275,7 @@ static EGLBoolean egl_init_drivers_locked() {
     if (cnx->dso == 0) {
         char value[PROPERTY_VALUE_MAX];
         property_get("debug.egl.hw", value, "1");
-        if (atoi(value) != 0) {
+        if (useHardwareRenderer) {
             cnx->hooks[GLESv1_INDEX] = &gHooks[GLESv1_INDEX][IMPL_HARDWARE];
             cnx->hooks[GLESv2_INDEX] = &gHooks[GLESv2_INDEX][IMPL_HARDWARE];
             cnx->dso = loader.open(EGL_DEFAULT_DISPLAY, 1, cnx);
