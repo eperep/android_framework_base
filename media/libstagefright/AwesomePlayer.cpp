@@ -925,6 +925,12 @@ void AwesomePlayer::onBufferingUpdate() {
             } else if (mFlags & PREPARING) {
                 LOGV("cache has filled up (%.2f secs), prepare is done",
                      cachedDurationUs / 1E6);
+                int percentage = 100.0 * (double)cachedDurationUs / mDurationUs;
+                if (percentage > 100) {
+                  percentage = 100;
+                }
+
+                notifyListener_l(MEDIA_BUFFERING_UPDATE, percentage);
                 finishAsyncPrepare_l();
 #ifdef PROFILING
                 mHighWaterMarkTimeUs = ALooper::GetNowUs();
