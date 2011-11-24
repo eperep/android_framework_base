@@ -69,6 +69,7 @@ enum {
     kKeyThumbnailTime     = 'thbT',  // int64_t (usecs)
     kKeyTrackID           = 'trID',
     kKeyIsDRM             = 'idrm',  // int32_t (bool)
+    kKeyDecoderFlags      = 'dcfl',
 
     kKeyAlbum             = 'albu',  // cstring
     kKeyArtist            = 'arti',  // cstring
@@ -130,6 +131,9 @@ enum {
     kKeyTimeLapse         = 'tlps',  // bool (int32_t)
     kKeyHeader            = 'hder', //// represents header
     kKeyMVCC              = 'mvcc',
+    kKeyBufferType        = 'bufT',
+    kKeyEmbeddBuffer      = 'Ebuf',  // bool (int32_t)
+    kKeyReqEmbeddBuffer   = 'Rebf',  // bool (int32_t)
 };
 
 enum {

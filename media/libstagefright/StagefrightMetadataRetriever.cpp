@@ -482,6 +482,9 @@ void StagefrightMetadataRetriever::parseMetaData() {
 
     size_t numTracks = mExtractor->countTracks();
 
+    if (numTracks == 0)      //If no tracks available, corrupt or not valid stream
+        return;
+
     char tmp[32];
     sprintf(tmp, "%d", numTracks);
 
@@ -584,6 +587,35 @@ void StagefrightMetadataRetriever::parseMetaData() {
                         METADATA_KEY_MIMETYPE, String8("audio/x-matroska"));
             }
         }
+        else if (!strcasecmp(fileMIME, "video/avc") )
+            //This condition will be true if ASF file contains only h264.
+            mMetaData.add(
+                    METADATA_KEY_MIMETYPE, String8("video/x-ms-asf"));
+        else if (!strcasecmp(fileMIME, "audio/mp4a-latm"))
+            //This condition will be true if ASF file contains only aac.
+            mMetaData.add(
+                    METADATA_KEY_MIMETYPE, String8("audio/aac"));
+    } else {
+        const char *fileMIME;
+        CHECK(meta->findCString(kKeyMIMEType, &fileMIME));
+        if (!strcasecmp(fileMIME, "audio/x-ms-wma")) {
+            for (size_t i = 0; i < numTracks; ++i) {
+                sp<MetaData> trackMeta = mExtractor->getTrackMetaData(i);
+                const char *trackMIME;
+                CHECK(trackMeta->findCString(kKeyMIMEType, &trackMIME));
+
+                if (!strncasecmp("video/", trackMIME, 6)) {
+                    // When fileMIME is returned as audio, setting fileMIME
+                    // to video for video + audio files
+                    mMetaData.add(
+                            METADATA_KEY_MIMETYPE, String8("video/x-ms-wmv"));
+                }
+            }
+        }
+        else if (!strcasecmp(fileMIME, "video/avc") || !strcasecmp(fileMIME, "audio/mp4a-latm"))
+            //This condition will be true if ASF file contains h264 or aac.
+            mMetaData.add(
+                    METADATA_KEY_MIMETYPE, String8("video/x-ms-asf"));
     }
 
     // To check whether the media file is drm-protected

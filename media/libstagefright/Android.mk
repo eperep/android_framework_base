@@ -27,6 +27,7 @@ LOCAL_SRC_FILES:=                         \
         MPEG2TSWriter.cpp                 \
         MPEG4Extractor.cpp                \
         MPEG4Writer.cpp                   \
+        SuperExtractor.cpp                \
         MediaBuffer.cpp                   \
         MediaBufferGroup.cpp              \
         MediaDefs.cpp                     \
@@ -52,6 +53,7 @@ LOCAL_SRC_FILES:=                         \
         WVMExtractor.cpp                  \
         XINGSeeker.cpp                    \
         avc_utils.cpp                     \
+        sfQueue.cpp                       \
         jittertool.cpp                    \
 
 LOCAL_C_INCLUDES:= \
@@ -61,6 +63,7 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/external/tremolo \
         $(TOP)/frameworks/base/media/libstagefright/rtsp \
         $(TOP)/external/openssl/include \
+        $(TEGRA_TOP)/core/include/openmax/il
 
 LOCAL_SHARED_LIBRARIES := \
         libbinder         \

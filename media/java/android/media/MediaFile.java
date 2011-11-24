@@ -210,7 +210,10 @@ public class MediaFile {
         addFileType("TS", FILE_TYPE_MP2TS, "video/mp2ts");
         addFileType("M2TS", FILE_TYPE_MP2TS, "video/mp2ts");
         addFileType("AVI", FILE_TYPE_AVI, "video/avi");
+        addFileType("AVI", FILE_TYPE_AVI, "video/x-msvideo");
         addFileType("MOV", FILE_TYPE_MOV, "video/quicktime");
+        addFileType("DIVX", FILE_TYPE_AVI, "video/x-msvideo");
+
 
         if (isWMVEnabled()) {
             addFileType("WMV", FILE_TYPE_WMV, "video/x-ms-wmv", MtpConstants.FORMAT_WMV);

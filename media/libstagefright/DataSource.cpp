@@ -18,6 +18,7 @@
 #include "include/AVIExtractor.h"
 #include "include/MP3Extractor.h"
 #include "include/MPEG4Extractor.h"
+#include "include/SuperExtractor.h"
 #include "include/WAVExtractor.h"
 #include "include/OggExtractor.h"
 #include "include/MPEG2TSExtractor.h"
@@ -119,6 +120,7 @@ void DataSource::RegisterDefaultSniffers() {
             && (!strcmp(value, "1") || !strcasecmp(value, "true"))) {
         RegisterSniffer(SniffDRM);
     }
+    RegisterSniffer(SniffSuper);
 }
 
 // static
