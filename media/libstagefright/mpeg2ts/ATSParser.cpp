@@ -41,6 +41,7 @@ namespace android {
 #define MY_LOGV(x, y) \
     do { unsigned tmp = y; LOGV(x, tmp); } while (0)
 
+static const size_t kTSPacketSize = 188;
 
 struct ATSParser::Program : public RefBase {
     Program(ATSParser *parser, unsigned programNumber, unsigned programMapPID);
@@ -793,7 +794,7 @@ sp<MediaSource> ATSParser::Stream::getSource(SourceType type) {
 
 ATSParser::ATSParser(uint32_t flags)
     : mFlags(flags) {
-   tsPacketLen = -1;
+    tsPacketLen = kTSPacketSize;
 }
 
 ATSParser::~ATSParser() {
