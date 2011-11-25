@@ -357,9 +357,15 @@ void BlockIterator::seek(int64_t seekTimeUs, bool seekToKeyFrame) {
     }
     while (!eos() && block()->GetTrackNumber() != mTrackNum);
 
+         // In case of AV streams,it will look for key-freames while seeking...
+        //For audio-only streams,it won't check for key-frame...
     if (seekToKeyFrame) {
         while (!eos() && (!mBlockEntry->GetBlock()->IsKey() ||
             blockTimeUs() < seekTimeUs)) {
+            advance_l();
+        }
+    } else {
+        while (!eos() && blockTimeUs() < seekTimeUs) {
             advance_l();
         }
     }
