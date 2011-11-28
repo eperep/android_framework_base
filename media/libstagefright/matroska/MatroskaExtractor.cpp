@@ -248,20 +248,29 @@ void BlockIterator::advance() {
 
 int64_t BlockIterator::GetNextTime() {
     Mutex::Autolock autoLock(mExtractor->mLock);
+    enum { VIDEO_TRACK = 1, AUDIO_TRACK = 2 };
     mNextBlockEntry = mCluster->GetNext(mBlockEntry);
-    if(mNextBlockEntry != NULL)
+    while(mNextBlockEntry != NULL)
     {
-        return (mNextBlockEntry->GetBlock()->GetTime(mCluster) + 500ll) / 1000ll;
+        if(mNextBlockEntry != NULL && mNextBlockEntry->GetBlock()->GetTrackNumber() == AUDIO_TRACK)
+        {
+            return (mNextBlockEntry->GetBlock()->GetTime(mCluster) + 500ll) / 1000ll;
+        }
+        mNextBlockEntry = mCluster->GetNext(mNextBlockEntry);
     }
-    else
+
+    mNextCluster = mExtractor->mSegment->GetNext(mCluster);
+
+    if(mNextCluster != NULL)
+        mNextBlockEntry = mNextCluster->GetFirst();
+
+    while(mNextBlockEntry != NULL)
     {
-        mNextCluster = mExtractor->mSegment->GetNext(mCluster);
-
-        if(mNextCluster != NULL)
-            mNextBlockEntry = mNextCluster->GetFirst();
-
-        if(mNextBlockEntry != NULL)
-            return (mNextBlockEntry->GetBlock()->GetTime(mNextCluster) + 500ll) / 1000ll;
+        if(mNextBlockEntry != NULL && mNextBlockEntry->GetBlock()->GetTrackNumber() == AUDIO_TRACK)
+        {
+            return (mNextBlockEntry->GetBlock()->GetTime(mCluster) + 500ll) / 1000ll;
+        }
+        mNextBlockEntry = mCluster->GetNext(mNextBlockEntry);
     }
 
     return 0;
