@@ -25,10 +25,13 @@
 #include "NuPlayerDriver.h"
 #include "NuPlayerRenderer.h"
 #include "NuPlayerSource.h"
-#include "StreamingSource.h"
 
 #include "ATSParser.h"
+#include "AESParser.h"
+#include "StreamingSource.h"
+#include "StreamingSourceES.h"
 
+#include <media/IStreamSource.h>
 #include <media/stagefright/foundation/hexdump.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
@@ -79,7 +82,34 @@ void NuPlayer::setDriver(const wp<NuPlayerDriver> &driver) {
 void NuPlayer::setDataSource(const sp<IStreamSource> &source) {
     sp<AMessage> msg = new AMessage(kWhatSetDataSource, id());
 
-    msg->setObject("source", new StreamingSource(source));
+    Parcel *reply = new Parcel();
+    source->getStreamFormat(reply);
+    int StreamFormat = reply->readInt32();
+    LOGV("setDataSource: source->getStreamFormat: %d", StreamFormat);
+
+    source->getStreamMimetype(reply);
+    const char *MimeType = reply->readCString();
+    LOGV("setDataSource: source->getStreamMimetype: %s", MimeType);
+
+    if(StreamFormat == STREAM_FORMAT_ES)
+    {
+        if (memcmp("video/nvidiaes", MimeType, strlen(MimeType)) == 0)
+        {
+            msg->setObject("source", new StreamingSourceES(source,  StreamingSourceES::NVIDIA));
+        }
+        else if (memcmp("video/h264nales", MimeType, strlen(MimeType)) == 0)
+        {
+            msg->setObject("source", new StreamingSourceES(source,  StreamingSourceES::H264NAL));
+        }
+        else if(memcmp("audio/aac-adts", MimeType, strlen(MimeType)) == 0)
+        {
+            msg->setObject("source", new StreamingSourceES(source,  StreamingSourceES::AAC_ADTS));
+        }
+    }
+    else
+    {
+        msg->setObject("source", new StreamingSource(source));
+    }
     msg->post();
 }
 

@@ -41,6 +41,8 @@ enum {
     // IStreamListener
     QUEUE_BUFFER,
     ISSUE_COMMAND,
+    GET_STREAM_FORMAT,
+    GET_STREAM_MIMETYPE,
 };
 
 struct BpStreamSource : public BpInterface<IStreamSource> {
@@ -71,6 +73,18 @@ struct BpStreamSource : public BpInterface<IStreamSource> {
         data.writeInt32(static_cast<int32_t>(index));
         remote()->transact(
                 ON_BUFFER_AVAILABLE, data, &reply, IBinder::FLAG_ONEWAY);
+    }
+
+    virtual void getStreamFormat(Parcel* reply) {
+        Parcel data;
+        data.writeInterfaceToken(IStreamSource::getInterfaceDescriptor());
+        remote()->transact(GET_STREAM_FORMAT, data, reply);
+    }
+
+    virtual void getStreamMimetype(Parcel* reply) {
+        Parcel data;
+        data.writeInterfaceToken(IStreamSource::getInterfaceDescriptor());
+        remote()->transact(GET_STREAM_MIMETYPE, data, reply);
     }
 };
 
@@ -106,6 +120,20 @@ status_t BnStreamSource::onTransact(
         {
             CHECK_INTERFACE(IStreamSource, data, reply);
             onBufferAvailable(static_cast<size_t>(data.readInt32()));
+            break;
+        }
+
+        case GET_STREAM_FORMAT:
+        {
+            CHECK_INTERFACE(IStreamSource, data, reply);
+            getStreamFormat(reply);
+            break;
+        }
+
+        case GET_STREAM_MIMETYPE:
+        {
+            CHECK_INTERFACE(IStreamSource, data, reply);
+            getStreamMimetype(reply);
             break;
         }
 

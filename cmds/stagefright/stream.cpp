@@ -47,6 +47,8 @@ struct MyStreamSource : public BnStreamSource {
     virtual void setBuffers(const Vector<sp<IMemory> > &buffers);
 
     virtual void onBufferAvailable(size_t index);
+    virtual void getStreamFormat(Parcel* reply);
+    virtual void getStreamMimetype(Parcel* reply);
 
 protected:
     virtual ~MyStreamSource();
@@ -118,6 +120,13 @@ void MyStreamSource::onBufferAvailable(size_t index) {
         mNumPacketsSent += n / 188;
     }
 }
+
+void MyStreamSource::getStreamFormat(Parcel* reply) {
+}
+
+void MyStreamSource::getStreamMimetype(Parcel* reply) {
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 struct MyConvertingStreamSource : public BnStreamSource {
@@ -127,6 +136,8 @@ struct MyConvertingStreamSource : public BnStreamSource {
     virtual void setBuffers(const Vector<sp<IMemory> > &buffers);
 
     virtual void onBufferAvailable(size_t index);
+    virtual void getStreamFormat(Parcel* reply);
+    virtual void getStreamMimetype(Parcel* reply);
 
 protected:
     virtual ~MyConvertingStreamSource();
@@ -254,6 +265,12 @@ void MyConvertingStreamSource::onBufferAvailable(size_t index) {
 
         mListener->issueCommand(IStreamListener::EOS, false /* synchronous */);
     }
+}
+
+void MyConvertingStreamSource::getStreamFormat(Parcel* reply) {
+}
+
+void MyConvertingStreamSource::getStreamMimetype(Parcel* reply) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////

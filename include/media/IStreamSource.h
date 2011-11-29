@@ -26,6 +26,11 @@ struct AMessage;
 struct IMemory;
 struct IStreamListener;
 
+enum stream_format {
+    STREAM_FORMAT_TS = 1,
+    STREAM_FORMAT_ES = 2,
+};
+
 struct IStreamSource : public IInterface {
     DECLARE_META_INTERFACE(StreamSource);
 
@@ -33,6 +38,8 @@ struct IStreamSource : public IInterface {
     virtual void setBuffers(const Vector<sp<IMemory> > &buffers) = 0;
 
     virtual void onBufferAvailable(size_t index) = 0;
+    virtual void getStreamFormat(Parcel* reply) = 0;
+    virtual void getStreamMimetype(Parcel* reply) = 0;
 };
 
 struct IStreamListener : public IInterface {

@@ -9,12 +9,14 @@ LOCAL_SRC_FILES:=                       \
         NuPlayerRenderer.cpp            \
         NuPlayerStreamListener.cpp      \
         StreamingSource.cpp             \
+        StreamingSourceES.cpp           \
 
 LOCAL_C_INCLUDES := \
         $(TOP)/frameworks/base/include/media/stagefright/openmax        \
 	$(TOP)/frameworks/base/media/libstagefright/include             \
         $(TOP)/frameworks/base/media/libstagefright/mpeg2ts             \
         $(TOP)/frameworks/base/media/libstagefright/httplive            \
+        $(TOP)/frameworks/base/media/libmediaplayerservice/es           \
 
 LOCAL_MODULE:= libstagefright_nuplayer
 
