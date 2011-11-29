@@ -3301,6 +3301,7 @@ bool OMXCodec::drainInputBuffer(BufferInfo *info) {
 
     size_t offset = 0;
     int32_t n = 0;
+    int32_t srcflags = 0;
 
 
     for (;;) {
@@ -3412,6 +3413,7 @@ bool OMXCodec::drainInputBuffer(BufferInfo *info) {
         int64_t lastBufferTimeUs;
         CHECK(srcBuffer->meta_data()->findInt64(kKeyTime, &lastBufferTimeUs));
         CHECK(lastBufferTimeUs >= 0);
+        srcBuffer->meta_data()->findInt32(kKeyDecoderFlags, &srcflags);
         if (mIsEncoder) {
             mDecodingTimeList.push_back(lastBufferTimeUs);
         }
@@ -3463,6 +3465,10 @@ bool OMXCodec::drainInputBuffer(BufferInfo *info) {
     }
 
     OMX_U32 flags = OMX_BUFFERFLAG_ENDOFFRAME;
+    if(srcflags)
+    {
+        flags |= srcflags;
+    }
 
     if (signalEOS) {
         flags |= OMX_BUFFERFLAG_EOS;
