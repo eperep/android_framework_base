@@ -64,9 +64,9 @@ class Loader : public Singleton<Loader>
     Vector<entry_t> gConfig;    
     getProcAddressType getProcAddress;
     
+public:
     const char* getTag(int dpy, int impl);
 
-public:
     ~Loader();
     
     void* open(EGLNativeDisplayType display, int impl, egl_connection_t* cnx);

@@ -262,7 +262,8 @@ static EGLBoolean egl_init_drivers_locked() {
 
     char value[PROPERTY_VALUE_MAX];
     property_get("debug.egl.hw", value, "1");
-    bool useHardwareRenderer = (atoi(value) != 0);
+    bool useHardwareRenderer = (atoi(value) != 0 &&
+                                loader.getTag(int(EGL_DEFAULT_DISPLAY), 1) != NULL);
 
     cnx = &gEGLImpl[IMPL_SOFTWARE];
     if (cnx->dso == 0 && !useHardwareRenderer) {
