@@ -278,6 +278,9 @@ int64_t BlockIterator::GetNextTime() {
 
 void BlockIterator::advance_l() {
     for (;;) {
+        if( mCluster == NULL )
+            break;
+
         long res = mCluster->GetEntry(mBlockEntryIndex, mBlockEntry);
         LOGV("GetEntry returned %ld", res);
 
