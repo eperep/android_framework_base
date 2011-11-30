@@ -2070,8 +2070,12 @@ bool ACodec::ExecutingState::onOMXEvent(
     switch (event) {
         case OMX_EventPortSettingsChanged:
         {
+            if (data1 == (OMX_U32)kPortIndexInput)
+            {
+                // ignore port setting change for input as it is not yet supported
+                return true;
+            }
             CHECK_EQ(data1, (OMX_U32)kPortIndexOutput);
-
             if (data2 == 0 || data2 == OMX_IndexParamPortDefinition) {
                 CHECK_EQ(mCodec->mOMX->sendCommand(
                             mCodec->mNode,
