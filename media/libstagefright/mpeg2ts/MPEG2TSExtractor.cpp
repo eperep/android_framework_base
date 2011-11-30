@@ -214,7 +214,8 @@ void MPEG2TSExtractor::init() {
                 mSourceImpls.push(impl);
             }
         }
-
+        // Number of ts packets to be parsed to determine type of streams
+        // Assuming 25000 packets is sufficient
         if (++numPacketsParsed > 25000) {
             break;
         }

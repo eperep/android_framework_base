@@ -505,16 +505,11 @@ sp<MediaSource> OMXCodec::Create(
 
             err = codec->configureCodec(meta);
 
-            if (err == OK) {
-                if (!strcmp("OMX.Nvidia.mpeg2v.decode", componentName)) {
-                    codec->mFlags |= kOnlySubmitOneInputBufferAtOneTime;
-                }
-
+            if (err == OK)
                 return codec;
-            }
-
-            LOGV("Failed to configure codec '%s'", componentName);
         }
+
+        LOGV("Failed to configure codec '%s'", componentName);
     }
 
     return NULL;
@@ -3358,6 +3353,11 @@ bool OMXCodec::drainInputBuffer(BufferInfo *info) {
             err = OK;
         } else {
             err = mSource->read(&srcBuffer);
+        }
+
+        if (err == INFO_DISCONTINUITY) {
+            // currently ignore this
+            continue;
         }
 
         if (err != OK) {

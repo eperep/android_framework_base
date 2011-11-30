@@ -95,7 +95,7 @@ private:
     void parsePES(ABitReader *br);
 
     status_t parsePID(
-        ABitReader *br, unsigned PID,
+        ABitReader *br, unsigned PID, unsigned cc,
         unsigned payload_unit_start_indicator);
 
     void parseAdaptationField(ABitReader *br);

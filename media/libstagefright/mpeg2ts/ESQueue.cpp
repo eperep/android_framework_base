@@ -50,10 +50,10 @@ void ElementaryStreamQueue::clear(bool clearFormat) {
     }
 
     mRangeInfos.clear();
-    bseqHdrSent = false;
 
     if (clearFormat) {
         mFormat.clear();
+        bseqHdrSent = false;
     }
 }
 
@@ -101,6 +101,12 @@ static bool IsSeeminglyValidADTSHeader(const uint8_t *ptr, size_t size) {
         // MPEG-2 profile 3 is reserved.
         return false;
     }
+
+    // Check the aac_frame_length also as some ts packets have no valid aac frames
+    unsigned aac_frame_length = (((uint16_t)(ptr[3] & 0x3)) << 11)
+            | (((uint16_t)ptr[4]) << 3) | (ptr[5] >> 5);
+    if (aac_frame_length == 0)
+       return false;
 
     return true;
 }
@@ -354,7 +360,13 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitAAC() {
 
         // adts_fixed_header
 
-        CHECK_EQ(bits.getBits(12), 0xfffu);
+        if (bits.getBits(12) !=  0xfffu) {
+            LOGV("Bad ADTS sync header, skipping");
+            // clear the buffer so that bogus aac packets are cleaned
+            mBuffer->setRange(0, 0);
+            return NULL;
+        }
+
         bits.skipBits(3);  // ID, layer
         bool protection_absent = bits.getBits(1) != 0;
 
@@ -396,7 +408,6 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitAAC() {
 
         if (number_of_raw_data_blocks_in_frame != 0) {
             // To be implemented.
-            TRESPASS();
         }
 
         if (offset + aac_frame_length > mBuffer->size()) {
@@ -406,9 +417,9 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitAAC() {
         size_t headerSize = protection_absent ? 7 : 9;
 
         ranges.push(aac_frame_length);
-        frameOffsets.push(offset + headerSize);
-        frameSizes.push(aac_frame_length - headerSize);
-        auSize += aac_frame_length - headerSize;
+        frameOffsets.push(offset );
+        frameSizes.push(aac_frame_length );
+        auSize += aac_frame_length ;
 
         offset += aac_frame_length;
     }
@@ -722,20 +733,13 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitMPEGVideo() {
             if (mFormat == NULL) {
                 CHECK_GE(size, 7u);
 
-                unsigned width =
-                    (data[4] << 4) | data[5] >> 4;
-
-                unsigned height =
-                    ((data[5] & 0x0f) << 8) | data[6];
 
                 mFormat = new MetaData;
                 mFormat->setCString(kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_MPEG2);
-                mFormat->setInt32(kKeyWidth, width);
-                mFormat->setInt32(kKeyHeight, height);
-                mvideoWidth = width;
-                mvideoHeight = height;
+                mFormat->setInt32(kKeyWidth, mvideoWidth);
+                mFormat->setInt32(kKeyHeight, mvideoHeight);
 
-                LOGI("found MPEG2 video codec config (%d x %d)", width, height);
+                LOGI("found MPEG2 video codec config (%d x %d)", mvideoWidth, mvideoHeight);
 
                 sp<ABuffer> csd = new ABuffer(offset);
                 memcpy(csd->data(), data, offset);

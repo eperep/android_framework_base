@@ -47,7 +47,7 @@ struct ATSParser::Program : public RefBase {
     Program(ATSParser *parser, unsigned programNumber, unsigned programMapPID);
 
     bool parsePID(
-            unsigned pid, unsigned payload_unit_start_indicator,
+            unsigned pid, unsigned payload_unit_start_indicator, unsigned cc,
             ABitReader *br, status_t *err);
 
     void signalDiscontinuity(
@@ -73,6 +73,8 @@ private:
     ATSParser *mParser;
     unsigned mProgramNumber;
     unsigned mProgramMapPID;
+    bool     mTransition;
+    unsigned mNextVidPid;
     KeyedVector<unsigned, sp<Stream> > mStreams;
     bool mFirstPTSValid;
     uint64_t mFirstPTS;
@@ -90,7 +92,7 @@ struct ATSParser::Stream : public RefBase {
     void setPID(unsigned pid) { mElementaryPID = pid; }
 
     status_t parse(
-            unsigned payload_unit_start_indicator,
+            unsigned payload_unit_start_indicator, unsigned cc,
             ABitReader *br);
 
     void signalDiscontinuity(
@@ -107,6 +109,7 @@ private:
     Program *mProgram;
     unsigned mElementaryPID;
     unsigned mStreamType;
+    unsigned continuitycounter;
 
     sp<ABuffer> mBuffer;
     sp<AnotherPacketSource> mSource;
@@ -134,12 +137,14 @@ ATSParser::Program::Program(
       mProgramNumber(programNumber),
       mProgramMapPID(programMapPID),
       mFirstPTSValid(false),
-      mFirstPTS(0) {
+      mFirstPTS(0),
+      mTransition(false),
+      mNextVidPid(0) {
     LOGV("new program number %u", programNumber);
 }
 
 bool ATSParser::Program::parsePID(
-        unsigned pid, unsigned payload_unit_start_indicator,
+        unsigned pid, unsigned payload_unit_start_indicator, unsigned cc,
         ABitReader *br, status_t *err) {
     *err = OK;
 
@@ -157,10 +162,19 @@ bool ATSParser::Program::parsePID(
     ssize_t index = mStreams.indexOfKey(pid);
     if (index < 0) {
         return false;
+    } else if (mTransition && (mNextVidPid == pid)) {
+          sp<AMessage> extra;
+          LOGE("Sending discontinuity for mpeg2 stream for ISDBT mode format change");
+
+          mStreams.editValueAt(index)->signalDiscontinuity(
+                                      DISCONTINUITY_FORMATCHANGE, extra);
+
+          mStreams.editValueAt(index)->setPID(mNextVidPid);
+          mTransition = false;
     }
 
     *err = mStreams.editValueAt(index)->parse(
-            payload_unit_start_indicator, br);
+            payload_unit_start_indicator, cc, br);
 
     return true;
 }
@@ -186,8 +200,12 @@ struct StreamInfo {
 status_t ATSParser::Program::parseProgramMap(ABitReader *br) {
     unsigned table_id = br->getBits(8);
     LOGV("  table_id = %u", table_id);
-    CHECK_EQ(table_id, 0x02u);
-
+    if (table_id != 0x02u) {
+        // This happens in typical DVB-T streams where PMT spans across multiple
+        // TS packets,ignoring as it does not harm
+        LOGV("Bogus PMT packet, ignoring");
+        return OK;
+    }
     unsigned section_syntax_indicator = br->getBits(1);
     LOGV("  section_syntax_indicator = %u", section_syntax_indicator);
     CHECK_EQ(section_syntax_indicator, 1u);
@@ -223,6 +241,22 @@ status_t ATSParser::Program::parseProgramMap(ABitReader *br) {
     // final CRC.
     size_t infoBytesRemaining = section_length - 9 - program_info_length - 4;
 
+    if (infoBytesRemaining > (br->numBitsLeft() / 8)) {
+        LOGV("TBD: Warning! the PMT continues in next ts packet");
+        infoBytesRemaining = (br->numBitsLeft() / 8);
+    }
+
+#define MY_CHECK_EQ(a, b) \
+   if ((a) != (b)) { \
+       LOGV("Warning: PMT error, skipping"); \
+       break; \
+   }
+
+#define MY_CHECK_GE(a, b) \
+   if ((a) < (b)) { \
+       LOGV("Warning: PMT error, skipping"); \
+       break; \
+   }
     while (infoBytesRemaining > 0) {
         CHECK_GE(infoBytesRemaining, 5u);
 
@@ -246,19 +280,33 @@ status_t ATSParser::Program::parseProgramMap(ABitReader *br) {
         br->skipBits(ES_info_length * 8);  // skip descriptors
 #else
         unsigned info_bytes_remaining = ES_info_length;
-        while (info_bytes_remaining >= 2) {
-            MY_LOGV("      tag = 0x%02x", br->getBits(8));
+        /* if the length of descriptor is more than data available
+        * ignore this descriptor , typically happens for ISDBT/DVB-T streams where
+        * PMT spans across multiple ts packets
+        * reference links:
+        * http://gstreamer.freedesktop.org/data/coverage/lcov
+        * /gst-plugins-bad/gst/mpegdemux/gstmpegdesc.c.gcov.html
+        * https://source.ridgerun.net/svn/leopardboarddm365/sdk
+        * /trunk/fs/apps/live555/src/liveMedia/MPEG2IndexFromTransportStream.cpp
+        */
+        if (ES_info_length * 8 <= br->numBitsLeft()) {
+            while (info_bytes_remaining >= 2) {
+                MY_LOGV("      tag = 0x%02x", br->getBits(8));
 
-            unsigned descLength = br->getBits(8);
-            LOGV("      len = %u", descLength);
+                unsigned descLength = br->getBits(8);
+                LOGV("      len = %u", descLength);
 
-            CHECK_GE(info_bytes_remaining, 2 + descLength);
+                CHECK_GE(info_bytes_remaining, 2 + descLength);
 
-            br->skipBits(descLength * 8);
+                br->skipBits(descLength * 8);
 
-            info_bytes_remaining -= descLength + 2;
+                info_bytes_remaining -= descLength + 2;
+            }
+            CHECK_EQ(info_bytes_remaining, 0u);
         }
-        CHECK_EQ(info_bytes_remaining, 0u);
+        else {
+            br->skipBits(br->numBitsLeft());
+        }
 #endif
 
         StreamInfo info;
@@ -269,8 +317,16 @@ status_t ATSParser::Program::parseProgramMap(ABitReader *br) {
         infoBytesRemaining -= 5 + ES_info_length;
     }
 
-    CHECK_EQ(infoBytesRemaining, 0u);
-    MY_LOGV("  CRC = 0x%08x", br->getBits(32));
+    if (infoBytesRemaining != 0u) {
+        LOGV("Ignoring trailing bits in PMT ES descriptors");
+        br->skipBits(br->numBitsLeft());
+    }
+    // Again for ISDBT/DVB-T Streams where PMT in this packet is incomplete,
+    // ignore CRC in such a case
+    if (br->numBitsLeft() == 32)
+        MY_LOGV("  CRC = 0x%08x", br->getBits(32));
+    else
+        LOGV("No CRC found in PMT, br->numBitsLeft() is %d", br->numBitsLeft());
 
     bool PIDsChanged = false;
     for (size_t i = 0; i < infos.size(); ++i) {
@@ -283,8 +339,35 @@ status_t ATSParser::Program::parseProgramMap(ABitReader *br) {
             PIDsChanged = true;
             break;
         }
-    }
 
+        if (index < 0) {
+            // New PID came, first check if we already have a stream handling the
+            // same type, send EOS for the old stream as currently we
+            // are not handling format/resolution change. TBD
+            for (size_t i = 0; i < mStreams.size(); ++i) {
+                if(info.mType == mStreams.editValueAt(i)->type()) {
+                    sp<AMessage> extra;
+                    LOGV(" FATAL: Stream data type was already handled");
+                    // signal discontinuity for old stream if of type mpeg2 video
+                    if (((info.mType == 0x01) || (info.mType == 0x02) || (info.mType == 0x1b)) &&
+                        ((mStreams.editValueAt(i)->type() == 0x01) ||
+                         (mStreams.editValueAt(i)->type() == 0x02) ||
+                         (mStreams.editValueAt(i)->type() == 0x1b))) {
+                         // Handle the new PID with same stream-source
+                         mStreams.add(info.mPID, mStreams.editValueAt(i));
+                         mTransition = true;
+                         mNextVidPid = info.mPID;
+                    } else if ((info.mType == 0x0f) && (mStreams.editValueAt(i)->type() == 0x0f)) {
+                         sp<Stream> newstream = mStreams.valueAt(i);
+                         mStreams.removeItem(mStreams.editValueAt(i)->pid());
+                         mStreams.add(info.mPID, newstream);
+                         newstream->setPID(info.mPID);
+                    }
+                }
+            }
+
+        }
+    }
     if (PIDsChanged) {
 #if 0
         LOGI("before:");
@@ -396,7 +479,8 @@ ATSParser::Stream::Stream(
       mElementaryPID(elementaryPID),
       mStreamType(streamType),
       mPayloadStarted(false),
-      mQueue(NULL) {
+      mQueue(NULL),
+      continuitycounter(0) {
     switch (mStreamType) {
         case STREAMTYPE_H264:
             mQueue = new ElementaryStreamQueue(ElementaryStreamQueue::H264);
@@ -439,7 +523,7 @@ ATSParser::Stream::~Stream() {
 }
 
 status_t ATSParser::Stream::parse(
-        unsigned payload_unit_start_indicator, ABitReader *br) {
+        unsigned payload_unit_start_indicator, unsigned cc, ABitReader *br) {
     if (mQueue == NULL) {
         return OK;
     }
@@ -458,12 +542,23 @@ status_t ATSParser::Stream::parse(
         }
 
         mPayloadStarted = true;
+        continuitycounter = cc;
     }
 
     if (!mPayloadStarted) {
         return OK;
     }
 
+    if (!payload_unit_start_indicator) {
+        if (cc != ((continuitycounter + 1) % 16)) {
+            // Discard the bad buffer
+            mBuffer->setRange(0,0);
+            mPayloadStarted = false;//Check from next continuity counter;
+            return OK;
+        } else {
+            continuitycounter = cc;
+        }
+    }
     size_t payloadSizeBits = br->numBitsLeft();
     CHECK_EQ(payloadSizeBits % 8, 0u);
 
@@ -707,12 +802,20 @@ status_t ATSParser::Stream::flush() {
     if (mBuffer->size() == 0) {
         return OK;
     }
-
+    uint8_t *ptr = mBuffer->data();
+    status_t err;
     LOGV("flushing stream 0x%04x size = %d", mElementaryPID, mBuffer->size());
 
     ABitReader br(mBuffer->data(), mBuffer->size());
-
-    status_t err = parsePES(&br);
+    // For dvb support check if the stream is actual PES or
+    // some other DVB stream messages like DBB/DSM-CC
+    if (ptr[0] == 0x00 && ptr[1] == 0x00 && ptr[2] == 0x01) {
+        err = parsePES(&br);
+    }
+    else {
+        LOGV("Skipping DVB specific messages now");
+        br.skipBits(mBuffer->size() * 8);
+    }
 
     mBuffer->setRange(0, 0);
 
@@ -896,7 +999,7 @@ void ATSParser::parseProgramAssociationTable(ABitReader *br) {
 
 status_t ATSParser::parsePID(
         ABitReader *br, unsigned PID,
-        unsigned payload_unit_start_indicator) {
+        unsigned payload_unit_start_indicator, unsigned cc) {
     if (PID == 0) {
         if (payload_unit_start_indicator) {
             unsigned skip = br->getBits(8);
@@ -910,7 +1013,7 @@ status_t ATSParser::parsePID(
     for (size_t i = 0; i < mPrograms.size(); ++i) {
         status_t err;
         if (mPrograms.editItemAt(i)->parsePID(
-                    PID, payload_unit_start_indicator, br, &err)) {
+                    PID, payload_unit_start_indicator, cc, br, &err)) {
             if (err != OK) {
                 return err;
             }
@@ -965,7 +1068,7 @@ status_t ATSParser::parseTS(ABitReader *br) {
     }
 
     if (adaptation_field_control == 1 || adaptation_field_control == 3) {
-        return parsePID(br, PID, payload_unit_start_indicator);
+        return parsePID(br, PID, payload_unit_start_indicator, continuity_counter);
     }
 
     return OK;

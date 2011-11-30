@@ -1861,6 +1861,10 @@ void AwesomePlayer::onVideoEvent() {
                         initRenderer_l();
                     }
                     continue;
+                } else if (err == INFO_DISCONTINUITY) {
+                    // Currently we are ignoring this discontinuity
+                    // coming from TS Parser
+                    continue;
                 }
 
                 // So video playback is complete, but we may still have
