@@ -52,6 +52,9 @@ private:
     };
 
     Mode mMode;
+    uint16_t mvideoWidth;
+    uint16_t mvideoHeight;
+    bool     bseqHdrSent;
 
     sp<ABuffer> mBuffer;
     List<RangeInfo> mRangeInfos;

@@ -34,7 +34,10 @@
 namespace android {
 
 ElementaryStreamQueue::ElementaryStreamQueue(Mode mode)
-    : mMode(mode) {
+    : mMode(mode),
+      mvideoHeight(480),
+      mvideoWidth(640),
+      bseqHdrSent(false) {
 }
 
 sp<MetaData> ElementaryStreamQueue::getFormat() {
@@ -47,10 +50,32 @@ void ElementaryStreamQueue::clear(bool clearFormat) {
     }
 
     mRangeInfos.clear();
+    bseqHdrSent = false;
 
     if (clearFormat) {
         mFormat.clear();
     }
+}
+
+static bool IsSeeminglyValidMPEG2SeqHeader(const uint8_t *ptr, size_t size, uint16_t& width, uint16_t& height) {
+
+    if (size < 7)
+        return false;
+
+    if ((ptr[0] == 0x00) && (ptr[1] == 0x00) && (ptr[2] == 0x01) && (ptr[3] == 0xB3))
+    {
+        uint16_t VideoWidth = (ptr[4] << 4)  | (ptr[5] & 0xF0);
+        uint16_t VideoHeight = ((ptr[5] & 0x0F) << 8) | (ptr[6]);
+        if ((width != VideoWidth) ||
+           (height != VideoHeight))
+        {
+            width = VideoWidth;
+            height = VideoHeight;
+        }
+        return true;
+    }
+
+    return false;
 }
 
 static bool IsSeeminglyValidADTSHeader(const uint8_t *ptr, size_t size) {
@@ -122,7 +147,6 @@ status_t ElementaryStreamQueue::appendData(
     if (mBuffer == NULL || mBuffer->size() == 0) {
         switch (mMode) {
             case H264:
-            case MPEG_VIDEO:
             {
 #if 0
                 if (size < 4 || memcmp("\x00\x00\x00\x01", data, 4)) {
@@ -152,6 +176,20 @@ status_t ElementaryStreamQueue::appendData(
                 data = &ptr[startOffset];
                 size -= startOffset;
 #endif
+                break;
+            }
+
+            case MPEG_VIDEO:
+            {
+                uint8_t *ptr = (uint8_t *)data;
+                //Ignoring the error from the below function call currently as
+                // nvidia mpeg2 decoder can discard video frames till it received a
+                // valid sequence header
+                if ((IsSeeminglyValidMPEG2SeqHeader(&ptr[0], size,mvideoWidth, mvideoHeight)))
+                    bseqHdrSent = true;
+                else if (!bseqHdrSent)
+                    return ERROR_MALFORMED;
+
                 break;
             }
 
@@ -694,6 +732,8 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitMPEGVideo() {
                 mFormat->setCString(kKeyMIMEType, MEDIA_MIMETYPE_VIDEO_MPEG2);
                 mFormat->setInt32(kKeyWidth, width);
                 mFormat->setInt32(kKeyHeight, height);
+                mvideoWidth = width;
+                mvideoHeight = height;
 
                 LOGI("found MPEG2 video codec config (%d x %d)", width, height);
 
