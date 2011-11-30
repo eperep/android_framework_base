@@ -30,7 +30,6 @@ extern const char *MEDIA_MIMETYPE_VIDEO_MPEG2;
 extern const char *MEDIA_MIMETYPE_VIDEO_RAW;
 extern const char *MEDIA_MIMETYPE_VIDEO_MJPEG;
 extern const char *MEDIA_MIMETYPE_VIDEO_WMV;
-extern const char *MEDIA_MIMETYPE_VIDEO_MPEG2;
 
 extern const char *MEDIA_MIMETYPE_AUDIO_AMR_NB;
 extern const char *MEDIA_MIMETYPE_AUDIO_AMR_WB;
@@ -44,6 +43,7 @@ extern const char *MEDIA_MIMETYPE_AUDIO_RAW;
 extern const char *MEDIA_MIMETYPE_AUDIO_FLAC;
 extern const char *MEDIA_MIMETYPE_AUDIO_AAC_ADTS;
 extern const char *MEDIA_MIMETYPE_AUDIO_WMA;
+extern const char *MEDIA_MIMETYPE_AUDIO_AC3;
 
 extern const char *MEDIA_MIMETYPE_CONTAINER_MPEG4;
 extern const char *MEDIA_MIMETYPE_CONTAINER_WAV;
@@ -56,7 +56,6 @@ extern const char *MEDIA_MIMETYPE_CONTAINER_WVM;
 
 
 extern const char *MEDIA_MIMETYPE_CONTAINER_ASF;
-extern const char *MEDIA_MIMETYPE_CONTAINER_AVI;
 extern const char *MEDIA_MIMETYPE_TEXT_3GPP;
 
 }  // namespace android

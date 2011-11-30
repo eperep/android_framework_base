@@ -37,6 +37,7 @@ LOCAL_SRC_FILES:=                         \
         MediaSourceSplitter.cpp           \
         MetaData.cpp                      \
         NuCachedSource2.cpp               \
+        NVAVIExtractor.cpp                \
         OMXClient.cpp                     \
         OMXCodec.cpp                      \
         OggExtractor.cpp                  \

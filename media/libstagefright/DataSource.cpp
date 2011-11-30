@@ -17,9 +17,9 @@
 #include "include/AMRExtractor.h"
 #include "include/ASFExtractor.h"
 #include "include/AVIExtractor.h"
+#include "include/NVAVIExtractor.h"
 #include "include/MP3Extractor.h"
 #include "include/MPEG4Extractor.h"
-#include "include/SuperExtractor.h"
 #include "include/WAVExtractor.h"
 #include "include/OggExtractor.h"
 #include "include/MPEG2TSExtractor.h"
@@ -114,14 +114,14 @@ void DataSource::RegisterDefaultSniffers() {
     RegisterSniffer(SniffMPEG2TS);
     RegisterSniffer(SniffMP3);
     RegisterSniffer(SniffAAC);
-    RegisterSniffer(SniffAVI);
+    //RegisterSniffer(SniffAVI);
+    RegisterSniffer(SniffNVAVI);
 
     char value[PROPERTY_VALUE_MAX];
     if (property_get("drm.service.enabled", value, NULL)
             && (!strcmp(value, "1") || !strcasecmp(value, "true"))) {
         RegisterSniffer(SniffDRM);
     }
-    RegisterSniffer(SniffSuper);
     RegisterSniffer(SniffASF);
 }
 
