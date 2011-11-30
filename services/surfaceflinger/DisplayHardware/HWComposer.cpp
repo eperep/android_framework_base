@@ -97,7 +97,12 @@ status_t HWComposer::createWorkList(size_t numLayers) {
     return NO_ERROR;
 }
 
-status_t HWComposer::prepare() const {
+status_t HWComposer::prepare(bool idle) const {
+    if (idle) {
+        mList->flags |= HWC_IDLE;
+    } else {
+        mList->flags &= ~HWC_IDLE;
+    }
     int err = mHwc->prepare(mHwc, mList);
     if (err == NO_ERROR) {
         size_t numOVLayers = 0;

@@ -103,7 +103,8 @@ SurfaceFlinger::SurfaceFlinger()
         mBootFinished(false),
         mOrientationChanged(false),
         mConsoleSignals(0),
-        mSecureFrameBuffer(0)
+        mSecureFrameBuffer(0),
+        mIsIdle(false)
 {
     init();
 }
@@ -322,8 +323,13 @@ status_t SurfaceFlinger::readyToRun()
 #pragma mark Events Handler
 #endif
 
-void SurfaceFlinger::waitForEvent()
+// default timeout for idle state is 250msec
+#define SF_IDLE_TIMEOUT 250
+//will return 1 if sf entered idle state, otherwise 0
+int SurfaceFlinger::waitForEvent()
 {
+    nsecs_t wait_start = -1;
+
     while (true) {
         nsecs_t timeout = -1;
         const nsecs_t freezeDisplayTimeout = ms2ns(5000);
@@ -337,7 +343,21 @@ void SurfaceFlinger::waitForEvent()
             timeout = waitTime>0 ? waitTime : 0;
         }
 
+        if (!mIsIdle) {
+            // if we're not idle, the display is not frozen either
+            // ram the timeout to 250ms
+            timeout = ms2ns(SF_IDLE_TIMEOUT);
+        }
+
         sp<MessageBase> msg = mEventQueue.waitMessage(timeout);
+
+         if (msg == 0) {
+            // we timed out, go idle
+            mIsIdle = true;
+            return 1;
+        } else {
+            mIsIdle = false;
+        }
 
         // see if we timed out
         if (isFrozen()) {
@@ -357,7 +377,7 @@ void SurfaceFlinger::waitForEvent()
             switch (msg->what) {
                 case MessageQueue::INVALIDATE:
                     // invalidate message, just return to the main loop
-                    return;
+                    return 0;
             }
         }
     }
@@ -432,7 +452,7 @@ status_t SurfaceFlinger::postMessageSync(const sp<MessageBase>& msg,
 
 bool SurfaceFlinger::threadLoop()
 {
-    waitForEvent();
+    int EnteringIdle = waitForEvent();
 
     // check for transactions
     if (UNLIKELY(mConsoleSignals)) {
@@ -448,12 +468,10 @@ bool SurfaceFlinger::threadLoop()
 
     // post surfaces (if needed)
     handlePageFlip();
-
-    if (mDirtyRegion.isEmpty()) {
-        // nothing new to do.
+    if (mDirtyRegion.isEmpty() && !EnteringIdle) {
+        // nothing new to do
         return true;
     }
-
     if (UNLIKELY(mHwWorkListDirty)) {
         // build the h/w work list
         handleWorkList();
@@ -939,7 +957,7 @@ void SurfaceFlinger::setupHardwareComposer(Region& dirtyInOut)
         layer->setPerFrameData(&cur[i]);
     }
     const size_t fbLayerCount = hwc.getLayerCount(HWC_FRAMEBUFFER);
-    status_t err = hwc.prepare();
+    status_t err = hwc.prepare(mIsIdle);
     LOGE_IF(err, "HWComposer::prepare failed (%s)", strerror(-err));
 
     if (err == NO_ERROR) {

@@ -290,7 +290,7 @@ public:     // hack to work around gcc 4.0.3 bug
           void              repaintEverything();
 
 private:
-            void        waitForEvent();
+            int         waitForEvent(); //will return 1 if sf entered idle state, otherwise 0
             void        handleConsoleEvents();
             void        handleTransaction(uint32_t transactionFlags);
             void        handleTransactionLocked(uint32_t transactionFlags);
@@ -429,6 +429,8 @@ private:
 
    // only written in the main thread, only read in other threads
    volatile     int32_t                     mSecureFrameBuffer;
+    //only used in the main thread
+                bool                        mIsIdle;
 };
 
 // ---------------------------------------------------------------------------

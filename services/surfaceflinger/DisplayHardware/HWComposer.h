@@ -50,7 +50,7 @@ public:
     status_t createWorkList(size_t numLayers);
 
     // Asks the HAL what it can do
-    status_t prepare() const;
+    status_t prepare(bool idle = false) const;
 
     // disable hwc until next createWorkList
     status_t disable();
