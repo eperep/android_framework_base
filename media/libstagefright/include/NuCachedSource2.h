@@ -73,7 +73,7 @@ private:
 
     enum {
         kPageSize                       = 65536,
-        kDefaultHighWaterThreshold      = 25 * 1024 * 1024,
+        kDefaultHighWaterThreshold      = 40 * 1024 * 1024,
         kDefaultLowWaterThreshold       = 4 * 1024 * 1024,
 
         // Read data after a 15 sec timeout whether we're actively
@@ -105,6 +105,7 @@ private:
     sp<AMessage> mAsyncResult;
     bool mFetching;
     int64_t mLastFetchTimeUs;
+    int mFetchMoreCount;
 
     int32_t mNumRetriesLeft;
 
