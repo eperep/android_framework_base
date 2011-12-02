@@ -30,7 +30,7 @@
  * @defgroup nvcamera_ext_group NVIDIA Camera Extensions
  *
  * To enhance current camera parameters with additional functionality,
- * NVIDIA has exposed API extensions from the HAL to the Java layer
+ * NVIDIA has exposed API extensions from the HAL to the Java layer.
  * You can use the additional extensions that are available inside
  * the Camera HAL to configure NVIDIA's extended functionality.
  *
@@ -600,13 +600,13 @@ public class NvCamera extends Camera{
  *
  * Sets the sensor's capture rate during slow motion video capture.
  *
- * Sets the sensor's capture rate (in fps) and is used with the
- * video-speed parameter. To give the effects of slow motion video
- * capture, the sensor is configured at high rate and the timestamps
- * are modified based on the video-speed parameter.
+ * Sets the sensor's capture rate (in fps).  This is used with
+ * setVideoSpeed(). To give the effects of slow motion video
+ * capture, the sensor is configured at a high framerate, and the timestamps
+ * are modified based on the value of the video speed parameter.
  *
- * For example, if video-speed is set for a slow motion video capture (0.5
- * or half speed), and sensor-capture-rate is set at 60 fps, then to
+ * For example, if video speed is set for a slow motion video capture (0.5
+ * or half speed), and the sensor's capture rate is set at 60 fps, then to
  * get a slow motion video capture effect, the outgoing camera buffer's
  * timestamp will be modified to 33 ms (1 / FrameRate * recording speed)
  * instead of 17 ms (1 / FrameRate).
@@ -614,6 +614,9 @@ public class NvCamera extends Camera{
  * This parameter must be set after ::PreviewFrameRate. @c PreviewFrameRate
  * is used across encoder and writer, and as this is a special case we
  * want the playback rate different from the capture rate.
+ *
+ * This parameter is only valid for a slow-motion use case, and will only be
+ * processed by the driver if video speed is less than 1x.
  */
 /*@{*/
         public void setSensorCaptureRate(int value) {
@@ -655,16 +658,20 @@ public class NvCamera extends Camera{
  * - 3.0   - 3x    - Three times the normal speed (Fast motion)
  * - 4.0   - 4x    - Four times the normal speed (Fast motion)
  *
- * For example, if video-speed is set for a slow motion video capture (0.5
- * or half speed), and sensor-capture-rate is set at 60 fps, then to
+ * For example, if video speed is set for a slow motion video capture (0.5
+ * or half speed), and the sensor's capture rate is set at 60 fps, then to
  * get a slow motion video capture effect, the outgoing camera buffer's
  * timestamp will be modified to 33 ms (1 / FrameRate * recording speed)
  * instead of 17 ms (1 / FrameRate).
+ *
+ * When slow-motion recording is complete, the application must first reset
+ * the video speed to its default value (1x), and then it must call
+ * setPreviewFrameRate() to restore preview to the desired frame-rate.
  */
 /*@{*/
-	/**
-	 * Sets the video speed for camera recording.
-	 */
+        /**
+         * Sets the video speed for camera recording.
+         */
         public void setVideoSpeed(float value) {
             String v = Float.toString(value);
             set(NV_VIDEO_SPEED, v);
