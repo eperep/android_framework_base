@@ -409,7 +409,9 @@ public class NvCamera extends Camera{
      * The value must be not more than the number of allocated negative shutter
      * lag buffers. If this parameter is set, the requested frames will be
      * delivered one-at-a-time to the JPEG callback that is triggered by the
-     * standard @c takePicture() request.
+     * standard @c takePicture() request.  Apps should not call @c startPreview()
+     * until all of the requested burst frames have been received by the JPEG
+     * callback.
      *
      * For example, a negative shutter lag burst of 5 will call the JPEG
      * callback 5 times. The negative shutter lag frames will be delivered
@@ -487,7 +489,9 @@ public class NvCamera extends Camera{
         }
 
     /**
-     * Sets the current burst picture count.
+     * Sets the current burst picture count. Apps should not call
+     * @c startPreview() until all of the requested burst frames
+     * have been received by the JPEG callback.
      *
      * Defaults to 1.
      */
@@ -524,6 +528,8 @@ public class NvCamera extends Camera{
 
     /**
      * Sets the current raw dump flag.
+     * This can be used to trigger a Bayer raw dump.  This feature is
+     * currently under development.
      *
      * This is a 3-bit indicator, where:
      * - bit 0 is raw dump on/off
