@@ -40,7 +40,7 @@ class String8;
 
 typedef struct
 {
-    uint32_t mTracksStarted;
+    uint32_t mSourceCreated;
     Mutex mMutex;
 }ASFExtractorData;
 

@@ -256,6 +256,7 @@ ASFSource::ASFSource(
         NvAsfParserHalHandle(NvAsfParserHalHandle) {
 
     InitSource(mTrackIndex,extractor);
+    m_hExtractor->mSourceCreated++;
 }
 
 /**********************************************************************************************************************/
@@ -290,6 +291,18 @@ ASFSource::~ASFSource() {
     if(mStarted) {
         stop();
     }
+    if (m_hExtractor) {
+        m_hExtractor->mSourceCreated--;
+        if (m_hExtractor->mSourceCreated == 0 && NvAsfParserHalHandle) {
+            LOGV("%s[%d], destrying parser HAL",__FUNCTION__,__LINE__);
+            nvAsfParseHalImpl.nvParserHalDestroyFunc(NvAsfParserHalHandle);
+            NvAsfParserHalHandle = NULL;
+
+            //Free extractor memory
+            delete m_hExtractor;
+            m_hExtractor = NULL;
+        }
+    }
 }
 
 /**********************************************************************************************************************/
@@ -314,7 +327,6 @@ status_t ASFSource::start(MetaData *params) {
     CHECK(mFormat->findInt32(kKeyMaxInputSize, &max_size));
     mGroup->add_buffer(new MediaBuffer(max_size));
 
-    m_hExtractor->mTracksStarted++;
     mStarted = true;
     return OK;
 }
@@ -334,17 +346,6 @@ status_t ASFSource::stop() {
 
     delete mGroup;
     mGroup = NULL;
-
-    m_hExtractor->mTracksStarted--;
-
-    if(m_hExtractor->mTracksStarted == 0) {
-        err = nvAsfParseHalImpl.nvParserHalDestroyFunc(NvAsfParserHalHandle);
-        NvAsfParserHalHandle = NULL;
-
-        //Free extractor memory
-        delete m_hExtractor;
-        m_hExtractor = NULL;
-    }
     return err;
 }
 
