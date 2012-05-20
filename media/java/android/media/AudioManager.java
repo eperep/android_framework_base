@@ -2045,5 +2045,16 @@ public class AudioManager {
             return 0;
         }
     }
-
+	
+    /**
+     * Return the timestamp of when the last output stream was opened.
+     *
+     * @return The bit-mask "or" of audio output device codes for all enabled devices on this
+     *         stream. Zero or more of
+	 *	
+	 * Returns the time since the Epoch (00:00:00 UTC, January 1, 1970), measured in seconds.	
+     */
+	public int getLastOutStreamOpened() {
+		return AudioSystem.getLastOutStreamOpenedTimestamp();
+	}
 }

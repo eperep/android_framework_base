@@ -153,7 +153,7 @@ static const char *audio_interfaces[] = {
 AudioFlinger::AudioFlinger()
     : BnAudioFlinger(),
         mPrimaryHardwareDev(0), mMasterVolume(1.0f), mMasterMute(false), mNextUniqueId(1),
-        mBtNrecIsOff(false)
+        mBtNrecIsOff(false), mLastOutStreamOpenedTimestamp(0)
 {
 }
 
@@ -4912,6 +4912,10 @@ int AudioFlinger::openOutput(uint32_t *pDevices,
 
         // notify client processes of the new output creation
         thread->audioConfigChanged_l(AudioSystem::OUTPUT_OPENED);
+
+		// save timestamp
+		LOGV("openOutput() ");
+		mLastOutStreamOpenedTimestamp = time(NULL); 
         return id;
     }
 
@@ -5558,6 +5562,11 @@ status_t AudioFlinger::moveEffects(int sessionId, int srcOutput, int dstOutput)
     moveEffectChain_l(sessionId, srcThread, dstThread, false);
 
     return NO_ERROR;
+}
+
+int AudioFlinger::getLastOutStreamOpenedTimestamp()
+{
+	return mLastOutStreamOpenedTimestamp;
 }
 
 // moveEffectChain_l must be called with both srcThread and dstThread mLocks held

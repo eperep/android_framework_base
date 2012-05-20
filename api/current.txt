@@ -10308,6 +10308,7 @@ package android.media {
     method public void adjustStreamVolume(int, int, int);
     method public void adjustSuggestedStreamVolume(int, int, int);
     method public void adjustVolume(int, int);
+    method public int getLastOutStreamOpened();
     method public int getMode();
     method public java.lang.String getParameters(java.lang.String);
     method public int getRingerMode();

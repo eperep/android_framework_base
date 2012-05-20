@@ -69,7 +69,8 @@ enum {
     QUERY_EFFECT,
     GET_EFFECT_DESCRIPTOR,
     CREATE_EFFECT,
-    MOVE_EFFECTS
+    MOVE_EFFECTS,
+	GET_LAST_OUT_STR_OPENED_TIMESTAMP
 };
 
 class BpAudioFlinger : public BpInterface<IAudioFlinger>
@@ -663,6 +664,14 @@ public:
         remote()->transact(MOVE_EFFECTS, data, &reply);
         return reply.readInt32();
     }
+
+	virtual int getLastOutStreamOpenedTimestamp()
+	{
+        Parcel data, reply;
+        data.writeInterfaceToken(IAudioFlinger::getInterfaceDescriptor());
+        remote()->transact(GET_LAST_OUT_STR_OPENED_TIMESTAMP, data, &reply);
+        return reply.readInt32();
+	}
 };
 
 IMPLEMENT_META_INTERFACE(AudioFlinger, "android.media.IAudioFlinger");
@@ -1008,6 +1017,11 @@ status_t BnAudioFlinger::onTransact(
             int srcOutput = data.readInt32();
             int dstOutput = data.readInt32();
             reply->writeInt32(moveEffects(session, srcOutput, dstOutput));
+            return NO_ERROR;
+        } break;
+        case GET_LAST_OUT_STR_OPENED_TIMESTAMP: {
+            CHECK_INTERFACE(IAudioFlinger, data, reply);
+            reply->writeInt32( getLastOutStreamOpenedTimestamp() );
             return NO_ERROR;
         } break;
         default:

@@ -204,6 +204,11 @@ android_media_AudioSystem_getDevicesForStream(JNIEnv *env, jobject thiz, jint st
     return (jint) AudioSystem::getDevicesForStream(static_cast <audio_stream_type_t>(stream));
 }
 
+static jint
+android_media_AudioSystem_getLastOutStreamOpenedTimestamp(JNIEnv *env, jobject thiz)
+{
+    return (jint) AudioSystem::getLastOutStreamOpenedTimestamp();
+}
 // ----------------------------------------------------------------------------
 
 static JNINativeMethod gMethods[] = {
@@ -222,6 +227,7 @@ static JNINativeMethod gMethods[] = {
     {"setStreamVolumeIndex","(II)I",    (void *)android_media_AudioSystem_setStreamVolumeIndex},
     {"getStreamVolumeIndex","(I)I",     (void *)android_media_AudioSystem_getStreamVolumeIndex},
     {"getDevicesForStream", "(I)I",     (void *)android_media_AudioSystem_getDevicesForStream},
+    {"getLastOutStreamOpenedTimestamp", "()I",     (void *)android_media_AudioSystem_getLastOutStreamOpenedTimestamp},
 };
 
 int register_android_media_AudioSystem(JNIEnv *env)

@@ -159,6 +159,8 @@ public:
                                     int *enabled) = 0;
 
     virtual status_t moveEffects(int session, int srcOutput, int dstOutput) = 0;
+
+	virtual int getLastOutStreamOpenedTimestamp() = 0;
 };
 
 

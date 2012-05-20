@@ -170,6 +170,8 @@ public:
                         int *enabled);
 
     virtual status_t moveEffects(int sessionId, int srcOutput, int dstOutput);
+    
+	virtual int getLastOutStreamOpenedTimestamp();
 
     enum hardware_call_state {
         AUDIO_HW_IDLE = 0,
@@ -1399,6 +1401,8 @@ private:
                 bool                                mBtNrecIsOff;
 
                 Vector<AudioSessionRef*> mAudioSessionRefs;
+
+				int mLastOutStreamOpenedTimestamp;
 };
 
 

@@ -254,4 +254,5 @@ public class AudioSystem
     public static native int setStreamVolumeIndex(int stream, int index);
     public static native int getStreamVolumeIndex(int stream);
     public static native int getDevicesForStream(int stream);
+    public static native int getLastOutStreamOpenedTimestamp();
 }

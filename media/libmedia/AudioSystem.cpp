@@ -741,6 +741,11 @@ void AudioSystem::clearAudioConfigCache()
     gOutputs.clear();
 }
 
+int AudioSystem::getLastOutStreamOpenedTimestamp() {
+    const sp<IAudioFlinger>& af = AudioSystem::get_audio_flinger();
+    if (af == 0) return PERMISSION_DENIED;
+    return af->getLastOutStreamOpenedTimestamp();
+}
 // ---------------------------------------------------------------------------
 
 void AudioSystem::AudioPolicyServiceClient::binderDied(const wp<IBinder>& who) {
